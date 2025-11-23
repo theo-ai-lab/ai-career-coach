@@ -1,0 +1,16 @@
+Theo
+USC Business Administration & Artificial Intelligence '24
+Aspiring AI APM | Full-stack AI Engineer
+
+Experience
+• Building AI Career Coach – RAG + multi-agent system with Next.js 16, Supabase pgvector, OpenAI, LangGraph
+• Implemented resume/job description ingestion pipeline with text-embedding-3-small
+• Integrated PostHog analytics with session replays and custom events
+
+Skills
+TypeScript, React, Next.js, Tailwind, Supabase, PostgreSQL, pgvector, LangChain, LangGraph, OpenAI API, RAG, Vector Search, Prompt Engineering, PostHog
+
+Projects
+AI Career Coach – Personal AI agent that reads your resume + any job description and gives hyper-personalized application strategy, cover letter drafts, and interview prep.
+
+Passionate about shipping production-grade AI products that actually get used.
