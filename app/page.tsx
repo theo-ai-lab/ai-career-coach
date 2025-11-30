@@ -22,6 +22,14 @@ export default function Home() {
 
   const [loading, setLoading] = useState(false);
 
+  const [currentResumeId, setCurrentResumeId] = useState<string | null>(
+
+    typeof window !== 'undefined' ? localStorage.getItem('currentResumeId') : null
+
+  );
+
+  const [reportLoading, setReportLoading] = useState(false);
+
 
 
   const sendMessage = async () => {
@@ -40,13 +48,15 @@ export default function Home() {
 
 
 
+    const resumeId = typeof window !== 'undefined' ? localStorage.getItem('currentResumeId') : null;
+
     const res = await fetch('/api/query', {
 
       method: 'POST',
 
       headers: { 'Content-Type': 'application/json' },
 
-      body: JSON.stringify({ query: userMessage }),
+      body: JSON.stringify({ query: userMessage, resumeId }),
 
     });
 
@@ -127,40 +137,197 @@ export default function Home() {
             onChange={async (e) => {
               const file = e.target.files?.[0];
               if (!file) return;
+              
               const formData = new FormData();
               formData.append('file', file);
-              const res = await fetch('/api/ingest', { method: 'POST', body: formData });
-              const data = await res.json();
-              alert(data.success ? 'Resume uploaded!' : 'Error: ' + data.error);
+              formData.append('userId', 'test-user'); // Required by /api/upload
+              
+              try {
+                const res = await fetch('/api/upload', { method: 'POST', body: formData });
+                if (!res.ok) {
+                  const text = await res.text();
+                  alert('Upload failed: ' + text);
+                  return;
+                }
+                const data = await res.json();
+                if (data.success) {
+                  if (data.resumeId) {
+                    localStorage.setItem('currentResumeId', data.resumeId);
+                    setCurrentResumeId(data.resumeId);
+                  }
+                  alert(`✅ Resume uploaded successfully! ${data.chunks} chunks ingested.`);
+                } else {
+                  alert('Error: ' + (data.error || 'Unknown error'));
+                }
+              } catch (err: any) {
+                alert('Upload failed: ' + (err?.message ?? 'Unknown error'));
+              }
             }}
             className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700"
           />
         </div>
 
-        <div className="p-4 border-t flex gap-2">
+        <div className="p-4 border-t flex flex-col gap-2">
+          <div className="flex gap-2">
+            <Input
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && sendMessage()}
+              placeholder="Ask about my experience..."
+              className="flex-1"
+              disabled={loading}
+            />
+            <Button onClick={sendMessage} disabled={loading}>
+              Send
+            </Button>
+          </div>
 
-          <Input
-
-            value={input}
-
-            onChange={e => setInput(e.target.value)}
-
-            onKeyDown={e => e.key === 'Enter' && sendMessage()}
-
-            placeholder="Ask about my experience..."
-
-            className="flex-1"
-
-            disabled={loading}
-
-          />
-
-          <Button onClick={sendMessage} disabled={loading}>
-
-            Send
-
+          <Button
+            variant="outline"
+            onClick={() => {
+              localStorage.removeItem('currentResumeId');
+              setCurrentResumeId(null);
+              alert('Resume cleared! Upload a new one.');
+            }}
+          >
+            Clear Current Resume
           </Button>
 
+          <Button
+            variant="outline"
+            onClick={async () => {
+              try {
+                const res = await fetch("/api/agents/cover-letter", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    // In a real flow these would come from previous agent runs.
+                    resumeAnalysis: {},
+                    gapAnalysis: {},
+                    company: "OpenAI",
+                  }),
+                });
+                const json = await res.json();
+                if (!res.ok || !json.letter) {
+                  alert("Failed to generate cover letter: " + (json.error ?? "Unknown error"));
+                  return;
+                }
+                alert("Cover letter ready!\n\n" + json.letter.letter);
+              } catch (err: any) {
+                alert("Failed to generate cover letter: " + (err?.message ?? "Unknown error"));
+              }
+            }}
+          >
+            Generate Cover Letter for OpenAI
+          </Button>
+
+          <Button
+            variant="outline"
+            onClick={async () => {
+              try {
+                const res = await fetch("/api/agents/interview-prep", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    // In a real flow these would come from previous agent runs.
+                    resumeAnalysis: {},
+                    gapAnalysis: {},
+                    jobDescription: "APM role at OpenAI working on AI-native product experiences.",
+                    company: "OpenAI",
+                  }),
+                });
+                const json = await res.json();
+                if (!res.ok || !json.prep) {
+                  alert("Failed to generate interview prep: " + (json.error ?? "Unknown error"));
+                  return;
+                }
+                alert("Interview prep ready! 10 questions with perfect answers generated.");
+                console.log(json.prep);
+              } catch (err: any) {
+                alert("Failed to generate interview prep: " + (err?.message ?? "Unknown error"));
+              }
+            }}
+          >
+            Generate Interview Prep for OpenAI
+          </Button>
+
+          <Button
+            variant="outline"
+            onClick={async () => {
+              try {
+                const res = await fetch("/api/agents/strategy", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    // In a real flow these would come from previous agent runs.
+                    resumeAnalysis: {},
+                    gapAnalysis: {},
+                    targetCompany: "OpenAI",
+                  }),
+                });
+                const json = await res.json();
+                if (!res.ok || !json.plan) {
+                  alert("Failed to generate strategy plan: " + (json.error ?? "Unknown error"));
+                  return;
+                }
+                alert("Your 6-month plan to land OpenAI is ready! Check the console for details.");
+                console.log(json.plan);
+              } catch (err: any) {
+                alert("Failed to generate strategy plan: " + (err?.message ?? "Unknown error"));
+              }
+            }}
+          >
+            Generate My 6-Month Plan → OpenAI
+          </Button>
+
+          <Button
+            variant="default"
+            className="bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold"
+            disabled={reportLoading}
+            onClick={async () => {
+              try {
+                // Read resumeId from localStorage
+                const resumeId = typeof window !== 'undefined' ? localStorage.getItem('currentResumeId') : null;
+                if (!resumeId) {
+                  alert("Please upload a resume first so I can analyze it.");
+                  return;
+                }
+
+                setReportLoading(true);
+
+                const res = await fetch("/api/agents/report", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    resumeId,
+                    targetCompany: "OpenAI",
+                    targetRole: "APM",
+                    jobDescription: "APM role at OpenAI working on AI-native product experiences.",
+                  }),
+                });
+                if (!res.ok) {
+                  const text = await res.text();
+                  alert("Failed to generate report: " + text);
+                  setReportLoading(false);
+                  return;
+                }
+                const blob = await res.blob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                // The server returns a .md filename; browser will still let you export to PDF via Print.
+                a.download = "Theo_Bermudez_OpenAI_Career_Report.md";
+                a.click();
+                URL.revokeObjectURL(url);
+              } catch (err: any) {
+                alert("Failed to download report: " + (err?.message ?? "Unknown error"));
+              } finally {
+                setReportLoading(false);
+              }
+            }}
+          >
+            {reportLoading ? "Generating Report..." : "Download Full Career Report (Markdown → export to PDF)"}
+          </Button>
         </div>
 
       </Card>
@@ -170,3 +337,4 @@ export default function Home() {
   );
 
 }
+

@@ -1,83 +1,116 @@
-// app/api/upload/route.ts
+import { NextRequest } from "next/server";
 
-import { RecursiveCharacterTextSplitter } from '@langchain/textsplitters';
+import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
 
-import { OpenAIEmbeddings } from '@langchain/openai';
+import { OpenAIEmbeddings } from "@langchain/openai";
 
-import { SupabaseVectorStore } from '@langchain/community/vectorstores/supabase';
+import { createClient } from "@supabase/supabase-js";
 
-import { createClient } from '@supabase/supabase-js';
+import { randomUUID } from "crypto";
 
-export const runtime = 'nodejs';
-export const dynamic = 'force-dynamic';
-
-function getSupabase() {
-  const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_ANON_KEY;
+function getSupabaseClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) {
-    throw new Error('Missing SUPABASE_URL or SUPABASE_ANON_KEY');
+    throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
   }
   return createClient(url, key);
 }
 
-export async function POST(req: Request) {
+function getEmbeddings() {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error('Missing OPENAI_API_KEY');
+  }
+  return new OpenAIEmbeddings({
+    openAIApiKey: apiKey,
+    model: "text-embedding-3-small",
+  });
+}
+
+export async function POST(req: NextRequest) {
+
   try {
-    const form = await req.formData();
 
-    const file = form.get('file') as File;
-    const type = form.get('type') as 'resume' | 'job';
+    const formData = await req.formData();
 
-    if (!file) {
-      return Response.json({ error: 'No file provided' }, { status: 400 });
+    const file = formData.get("file") as File;
+
+    const userId = formData.get("userId") as string;
+
+    if (!file || !userId) {
+
+      return Response.json({ error: "Missing file or userId" }, { status: 400 });
+
     }
+
+    const supabase = getSupabaseClient();
+    const embeddings = getEmbeddings();
 
     const buffer = Buffer.from(await file.arrayBuffer());
 
-    // Import pdf-parse - handle ESM/CommonJS compatibility
-    let pdfParse: any;
-    try {
-      const pdfParseModule = await import('pdf-parse');
-      // Try multiple ways to get the function
-      pdfParse = pdfParseModule.default || 
-                 (pdfParseModule as any).PDFParse || 
-                 pdfParseModule;
-      
-      if (typeof pdfParse !== 'function') {
-        throw new Error('pdf-parse module did not export a function');
-      }
-    } catch (importError: any) {
-      throw new Error(`Failed to import pdf-parse: ${importError.message}`);
-    }
-    
-    const result = await pdfParse(buffer);
-    const text = result?.text;
+    const pdfParse = require("pdf-parse");
 
-    if (!text || text.trim().length === 0) {
-      return Response.json({ error: 'No text extracted from PDF' }, { status: 400 });
+    const pdfData = await pdfParse(buffer);
+
+    const text = pdfData.text;
+
+    if (!text.trim()) {
+
+      return Response.json({ error: "No text extracted" }, { status: 400 });
+
     }
 
-    const splitter = new RecursiveCharacterTextSplitter({ chunkSize: 800, chunkOverlap: 200 });
+    const splitter = new RecursiveCharacterTextSplitter({
 
-    const docs = await splitter.createDocuments([text], [{ type }]);
+      chunkSize: 1000,
 
-    const supabase = getSupabase();
-    const embeddings = new OpenAIEmbeddings({ 
-      model: 'text-embedding-3-small',
-      openAIApiKey: process.env.OPENAI_API_KEY
+      chunkOverlap: 200,
+
     });
 
-    await SupabaseVectorStore.fromDocuments(docs, embeddings, {
-      client: supabase,
-      tableName: 'documents',
-    });
+    const chunks = await splitter.createDocuments([text]);
 
-    return Response.json({ success: true, chunks: docs.length });
+    const vectors = await embeddings.embedDocuments(chunks.map(c => c.pageContent));
+
+    const resumeId: string = randomUUID();
+
+    const documentsToInsert = chunks.map((chunk, i) => ({
+
+      content: chunk.pageContent,
+
+      embedding: vectors[i],
+
+      metadata: { 
+
+        source: file.name, 
+
+        user_id: userId,
+
+        resume_id: resumeId
+
+      },
+
+    }));
+
+    const { error } = await supabase
+
+      .from("documents")
+
+      .insert(documentsToInsert);
+
+    if (error) throw error;
+
+    return Response.json({ success: true, resumeId, chunks: chunks.length });
+
   } catch (error: any) {
-    console.error('Upload error:', error);
-    return Response.json({ 
-      error: 'Upload failed', 
-      details: error.message 
-    }, { status: 500 });
-  }
+
+    console.error("RAG ingestion failed:", error);
+
+    return Response.json({ error: error.message }, { status: 500 });
+
 }
 
+}
+
+export const runtime = 'nodejs';

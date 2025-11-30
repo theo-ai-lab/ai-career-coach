@@ -15,6 +15,7 @@
     "@langchain/langgraph": "^1.0.2",
     "@langchain/openai": "^1.1.2",
     "@langchain/textsplitters": "^1.0.0",
+    "@napi-rs/canvas": "^0.1.83",
     "@radix-ui/react-scroll-area": "^1.2.10",
     "@radix-ui/react-slot": "^1.2.4",
     "@supabase/supabase-js": "^2.84.0",
@@ -24,12 +25,13 @@
     "langchain": "^1.0.6",
     "lucide-react": "^0.554.0",
     "next": "16.0.3",
-    "pdf-parse": "^2.4.5",
+    "pdf-parse": "^1.1.4",
     "posthog-js": "^1.297.2",
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "tailwind-merge": "^3.4.0",
-    "tsx": "^4.20.6"
+    "tsx": "^4.20.6",
+    "zod": "^4.1.13"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

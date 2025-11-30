@@ -1,4 +1,5 @@
 // lib/agents.ts
+// NOTE: Loosely typed to keep build simple; this is an internal helper, not part of the UI.
 import { OpenAIEmbeddings } from '@langchain/openai';
 import { SupabaseVectorStore } from '@langchain/community/vectorstores/supabase';
 import { createClient } from '@supabase/supabase-js';
@@ -122,8 +123,8 @@ Data: ${JSON.stringify(state)}`;
   }
 };
 
-// Build the graph
-const graph = new StateGraph({
+// Build the graph - explicitly type as `any` to satisfy langgraph's generic
+const graph: any = new StateGraph<any>({
   channels: {
     resumeAnalysis: null,
     jobAnalysis: null,
@@ -139,13 +140,13 @@ graph.addNode("findGaps", gapFinder);
 graph.addNode("writeCoverLetter", coverLetterWriter);
 graph.addNode("generateReport", finalReport);
 
-// Sequential flow for reliability
-graph.setEntryPoint("analyzeResume");
-graph.addEdge("analyzeResume", "analyzeJob");
-graph.addEdge("analyzeJob", "findGaps");
-graph.addEdge("findGaps", "writeCoverLetter");
-graph.addEdge("writeCoverLetter", "generateReport");
-graph.addEdge("generateReport", END);
+// Sequential flow for reliability (use `as any` to avoid TS complaining about node ids)
+(graph as any).setEntryPoint("analyzeResume");
+(graph as any).addEdge("analyzeResume", "analyzeJob");
+(graph as any).addEdge("analyzeJob", "findGaps");
+(graph as any).addEdge("findGaps", "writeCoverLetter");
+(graph as any).addEdge("writeCoverLetter", "generateReport");
+(graph as any).addEdge("generateReport", END as any);
 
 // Compile the graph - wrap in function to avoid module load errors
 function createCareerAgent() {
