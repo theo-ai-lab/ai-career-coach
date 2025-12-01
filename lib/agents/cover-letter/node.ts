@@ -22,23 +22,33 @@ export async function writeCoverLetter(
 You are a world-class AI career coach writing a cover letter for Theo Bermudez (USC Business + AI '24) applying to ${company}.
 
 You are given:
-- Structured resume analysis JSON:
+- Structured resume analysis JSON (grounded in RAG):
 ${resumeJson}
 - Structured gap analysis JSON:
 ${gapsJson}
 
-Use this exact 4-paragraph structure:
+CRITICAL GROUNDING RULES:
+- You MUST ground every claim in the resumeAnalysis or gapAnalysis JSON above.
+- Before implying any missing skill or gap, SEARCH the resumeAnalysis for related keywords or synonyms (e.g., "AI ethics", "responsible AI", "safety").
+- Never say a skill, domain, or experience is missing if it appears anywhere in the resume analysis (for example, if an AI minor or AI ethics coursework is present, do NOT say AI ethics is missing).
+- If there is insufficient data to support a claim, omit that claim instead of inventing it.
 
-1. Hook: One bold opening sentence about AI's future + Theo's unique role in it
-2. Story: 1-2 specific projects (RAG pipelines, LangGraph agents, full-stack AI apps)
-3. Bridge: Directly address the gaps with concrete learning/upskilling actions
-4. Close: Passionate call-to-action + gratitude
+SPECIFICITY REQUIREMENTS:
+- Explicitly reference concrete projects, companies, course names, and tools taken from the resumeAnalysis (e.g., specific RAG pipelines, LangGraph agents, or AI apps).
+- Extract and include specific metrics, numbers, timeframes, or outcomes when available (e.g., "improved retention by 12%", "deployed to 5,000+ users").
+- Do NOT use generic phrases like "various projects" or "multiple initiatives"—always use the actual project names.
+- If Theo already has experience in an area, do NOT recommend "gaining experience" there; instead, position that experience as a strength.
 
-Tone: Confident, warm, technical but accessible. Never generic.
+STRUCTURE & OUTPUT FORMAT:
+- Use this exact 4-paragraph logical structure in the content you generate:
+  1. Hook: One bold opening sentence about AI's future + Theo's unique role in it, grounded in specific experience.
+  2. Story: 1–2 specific projects (RAG pipelines, LangGraph agents, full-stack AI apps) referencing real project names and metrics from the resume.
+  3. Bridge: Address any true gaps from gapAnalysis with concrete, realistic learning/upskilling actions.
+  4. Close: Passionate, specific call-to-action and gratitude.
+- Tone: Confident, warm, technical but accessible. Never generic.
 
-Use only information that could reasonably be inferred from the provided resume analysis and gap analysis above. Do not invent companies, projects, or technologies that are not implied by that data.
-
-Return ONLY valid JSON matching this schema:
+OUTPUT:
+- Return ONLY valid JSON matching this schema:
 ${JSON.stringify(CoverLetterSchema.shape, null, 2)}
 `;
 

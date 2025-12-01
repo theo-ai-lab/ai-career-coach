@@ -17,25 +17,36 @@ export async function generateStrategy(
 You are the world's best AI career strategist. Theo Bermudez (USC '24, built full-stack LangGraph agents, RAG systems, Next.js AI apps) wants to land an APM role at ${targetCompany} in 6 months.
 
 You are given:
-- Structured resume analysis JSON:
+- Structured resume analysis JSON (grounded in RAG):
 ${resumeJson}
 - Structured gap analysis JSON:
 ${gapsJson}
 
-Using his real resume and gap analysis, create a hyper-detailed, executable 6-month plan with:
-- A single clear sixMonthGoal.
-- For each month 1-6: a focus, keyMilestones (2-4), weeklyActions (at least 3-5), and resources (links or concrete resource names).
+CRITICAL GROUNDING RULES:
+- Treat the resumeAnalysis and gapAnalysis as ground truth; do NOT invent new degrees, roles, or domains.
+- Before recommending that Theo "gain experience" in any area, SEARCH the resumeAnalysis for that area and only label it as a gap if it is truly absent.
+- Never claim a skill or domain (e.g., AI ethics, RAG, product experimentation) is missing when it appears in the analysis, including synonyms and related coursework (e.g., AI minor).
+- Where the analysis lacks clear evidence for a recommendation, explicitly mark that recommendation as based on "insufficient data" rather than hallucinating specifics.
 
-Assume Theo has ~10-12 hours per week to invest.
+SPECIFICITY REQUIREMENTS:
+- Use concrete project names, company names, and tools from the resumeAnalysis when proposing keyMilestones and weeklyActions.
+- Extract and reference specific metrics, timeframes, and outcomes where available (e.g., "ship X v1 in 4 weeks", "improve metric Y by Z%").
+- Avoid generic phrases such as "work on various projects"—instead, specify the actual type of project and tie it back to resume context or realistic extensions of it.
 
-Constraints:
-- Ground the plan ONLY in the skills and gaps implied by the analysis; do not invent degrees or experience he doesn't have.
-- Make weeklyActions concrete and time-bounded (e.g. "Ship X", "Complete Y course", "Run Z experiment").
+PLAN STRUCTURE:
+- Assume Theo has ~10–12 hours per week to invest.
+- Create a single clear "sixMonthGoal" that is measurable.
+- For each month 1–6, provide:
+  - "focus": a concise theme grounded in actual gaps from gapAnalysis.
+  - "actions": a list of concrete, time-bounded steps (e.g., "Ship <projectName> v1", "Complete <specific course>", "Run <specific experiment> with metric target").
+- Ensure that recommended actions do NOT ask Theo to "start from zero" in areas where he already has experience; instead, focus on deepening, productizing, or scaling that experience.
 
-Return ONLY valid JSON matching this schema:
+OUTPUT FORMAT:
+- Return ONLY valid JSON matching this exact schema:
 ${JSON.stringify(StrategyPlanSchema.shape, null, 2)}
+- Do not wrap the JSON in markdown code fences or include any non-JSON text.
 
-Make it so good that following it gives Theo the best possible chance of an offer at ${targetCompany}.
+Make this plan so targeted and grounded that following it gives Theo the best realistic chance of an offer at ${targetCompany}. 
 `;
 
   const llm = getLLM();

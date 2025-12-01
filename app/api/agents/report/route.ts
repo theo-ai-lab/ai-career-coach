@@ -98,10 +98,23 @@ export async function POST(req: NextRequest) {
     console.log('Report pipeline: starting resumeAnalysis');
     const resumeAnalysisPrompt = `You are an AI career coach for a candidate applying to ${targetCompany} ${targetRole}.
 
-Analyze the following resume content and provide a structured JSON analysis:
+You are analyzing a resume that has already been chunked and retrieved via RAG.
 
+CONTEXT FROM RESUME (retrieved_chunks):
 ${resumeContext}
 
+CRITICAL GROUNDING RULES:
+- You MUST base every part of your analysis on specific details from the context above.
+- Before stating that a skill, tool, domain, or experience is missing, SEARCH the entire context for related keywords, abbreviations, and synonyms.
+- Never claim a skill or area (e.g., AI ethics, responsible AI, experimentation) is missing if it appears anywhere in the context, including via an AI minor or course names.
+- If the context is insufficient for a section, explicitly use "insufficient data" instead of inventing content.
+
+SPECIFICITY REQUIREMENTS:
+- Extract and reference concrete metrics, numbers, timeframes, and project scopes where available.
+- Reference actual company names, project names, course titles, and tools as they appear in the context.
+- Do NOT use vague phrases like "various projects" or "multiple initiatives"—always use actual names when present.
+
+OUTPUT FORMAT:
 Return a JSON object with this exact structure:
 {
   "summary": "A 2-3 sentence summary of the candidate's background and experience",
@@ -110,7 +123,10 @@ Return a JSON object with this exact structure:
   "coreSkills": ["skill 1", "skill 2", "skill 3"]
 }
 
-Return ONLY valid JSON, no markdown formatting or additional text.`;
+Additional formatting constraints:
+- Return ONLY valid JSON, no markdown formatting or additional text.
+- Do not wrap the JSON in code fences.
+- When data is unclear or missing, use "insufficient data" or an empty array instead of hallucinating.`;
 
     const resumeAnalysisResponse = await llm.invoke(resumeAnalysisPrompt);
     let resumeAnalysis: ResumeAnalysis;
@@ -131,12 +147,24 @@ Return ONLY valid JSON, no markdown formatting or additional text.`;
     const jobDesc = jobDescription || `APM role at ${targetCompany} working on AI-native product experiences.`;
     const gapAnalysisPrompt = `You are an AI career coach analyzing fit between a candidate and ${targetRole} role at ${targetCompany}.
 
-Candidate Resume Analysis:
+You are given:
+- Candidate Resume Analysis (grounded in RAG):
 ${JSON.stringify(resumeAnalysis, null, 2)}
+- Target Role: ${targetRole} at ${targetCompany}
+- Job Description: ${jobDesc}
 
-Target Role: ${targetRole} at ${targetCompany}
-Job Description: ${jobDesc}
+CRITICAL GROUNDING RULES:
+- Treat the resumeAnalysis as the authoritative summary of the candidate's background.
+- Before listing any "missingTechnicalSkills", "missingProductSkills", or "experienceGaps", SEARCH the resumeAnalysis for related keywords and synonyms.
+- Never state that a skill, domain, or experience is missing if it appears anywhere in the resumeAnalysis (for example, do NOT say "AI ethics" is missing if there is an AI minor or relevant coursework).
+- If you are unsure whether something is actually missing, mark it as "insufficient data" rather than guessing.
 
+SPECIFICITY REQUIREMENTS:
+- When describing gaps and recommendations, reference specific projects, tools, or experiences from the resumeAnalysis.
+- Avoid generic phrases like "various projects"; use concrete names where possible.
+- If the candidate already has experience in an area, do NOT suggest "gaining experience" there. Instead, suggest deepening or broadening that experience.
+
+OUTPUT FORMAT:
 Analyze the gaps and provide a structured JSON response:
 {
   "roleFitScore": 0-100,
@@ -146,7 +174,10 @@ Analyze the gaps and provide a structured JSON response:
   "recommendations": ["recommendation 1", "recommendation 2"]
 }
 
-Return ONLY valid JSON, no markdown formatting or additional text.`;
+Additional formatting constraints:
+- Return ONLY valid JSON, no markdown formatting or additional text.
+- Do not wrap the JSON in code fences.
+- Use "insufficient data" when the job description or resume analysis does not clearly support a detailed statement.`;
 
     const gapAnalysisResponse = await llm.invoke(gapAnalysisPrompt);
     let gapAnalysis: GapAnalysis;
@@ -163,19 +194,32 @@ Return ONLY valid JSON, no markdown formatting or additional text.`;
     console.log('Report pipeline: starting coverLetter');
     const coverLetterPrompt = `You are an AI career coach helping a candidate write a tailored cover letter.
 
-Candidate Summary: ${resumeAnalysis.summary}
-Key Strengths: ${resumeAnalysis.keyStrengths.join(', ')}
-Recommendations: ${gapAnalysis.recommendations.join(', ')}
-Target Company: ${targetCompany}
-Target Role: ${targetRole}
+You are given:
+- Candidate Summary: ${resumeAnalysis.summary}
+- Key Strengths: ${resumeAnalysis.keyStrengths.join(', ')}
+- Recommendations from gap analysis: ${gapAnalysis.recommendations.join(', ')}
+- Target Company: ${targetCompany}
+- Target Role: ${targetRole}
 
-Write a professional, tailored cover letter in markdown format that:
-- Is addressed to ${targetCompany}
-- Is specifically tailored to the ${targetRole} role
-- Explicitly uses the candidate's background from the resume analysis
-- Highlights relevant strengths and addresses how the candidate can contribute
+CRITICAL GROUNDING RULES:
+- Ground every sentence of the cover letter in the resume analysis and gap analysis above.
+- Before implying that a skill or domain is missing, SEARCH the resumeAnalysis summary and keyStrengths for related terms; never say something is missing if it appears there.
+- Do not invent new companies, roles, or projects not implied by the analysis.
 
-Return the cover letter as markdown text (no JSON wrapper).`;
+SPECIFICITY REQUIREMENTS:
+- Reference actual projects, tools, and metrics mentioned in the resumeAnalysis (e.g., named RAG systems, LangGraph agents, product metrics).
+- Avoid generic phrases like "various projects" or "multiple initiatives"; always use the specific project or experience names when available.
+- If the candidate already has experience in an area, do not suggest they need to "gain experience" in that area; instead, frame it as a strength.
+
+OUTPUT FORMAT:
+- Write a professional, tailored cover letter in markdown format that:
+  - Is addressed to ${targetCompany}.
+  - Is specifically tailored to the ${targetRole} role.
+  - Explicitly uses the candidate's background from the resume analysis with concrete examples.
+  - Highlights relevant strengths and addresses how the candidate can contribute.
+- Optionally end with a short line indicating your confidence in the fit (e.g., "Confidence: high/medium/low") based on how well the analysis aligns with the job.
+
+Return ONLY the markdown cover letter text (no JSON wrapper).`;
 
     const coverLetterResponse = await llm.invoke(coverLetterPrompt);
     const coverLetterMarkdown: string = coverLetterResponse.content.toString();
@@ -185,15 +229,25 @@ Return the cover letter as markdown text (no JSON wrapper).`;
     console.log('Report pipeline: starting interviewPrep');
     const interviewPrepPrompt = `You are an AI career coach preparing a candidate for interviews at ${targetCompany} for ${targetRole}.
 
-Resume Analysis:
+You are given:
+- Resume Analysis (grounded in RAG):
 ${JSON.stringify(resumeAnalysis, null, 2)}
-
-Gap Analysis:
+- Gap Analysis:
 ${JSON.stringify(gapAnalysis, null, 2)}
+- Target Company: ${targetCompany}
+- Target Role: ${targetRole}
 
-Target Company: ${targetCompany}
-Target Role: ${targetRole}
+CRITICAL GROUNDING RULES:
+- All interview questions and answers must be based on the resumeAnalysis and gapAnalysis above.
+- Before labeling something as a weakness or gap, SEARCH the resumeAnalysis for related experience and avoid calling it missing if it is already present.
+- If the context does not contain enough information to construct a realistic example, respond with "insufficient data" for that part instead of fabricating details.
 
+SPECIFICITY REQUIREMENTS:
+- Behavioral and product answers must follow STAR and reference concrete projects, company names, metrics, and tools from the resumeAnalysis.
+- Technical answers should reference real systems and tools used by the candidate (e.g., specific RAG systems, LangGraph agents, Next.js apps) when appropriate.
+- Avoid generic placeholders like "various projects"; use actual project names instead.
+
+OUTPUT FORMAT:
 Generate interview preparation questions and answers. Return a JSON object:
 {
   "behavioral": [
@@ -208,9 +262,10 @@ Generate interview preparation questions and answers. Return a JSON object:
   "metaSummary": "Overall interview strategy summary"
 }
 
-Include 3-4 questions per category. Answers should be tailored to the candidate's actual background.
-
-Return ONLY valid JSON, no markdown formatting or additional text.`;
+Additional requirements:
+- Include 3–4 questions per category.
+- Answers should be tightly tailored to the candidate's actual background.
+- Return ONLY valid JSON, no markdown formatting or additional text.`;
 
     const interviewPrepResponse = await llm.invoke(interviewPrepPrompt);
     let interviewPrep: InterviewPrep;
@@ -227,12 +282,22 @@ Return ONLY valid JSON, no markdown formatting or additional text.`;
     console.log('Report pipeline: starting strategyPlan');
     const strategyPrompt = `You are an AI career coach creating a 6-month strategy plan.
 
-Gap Analysis:
+You are given:
+- Gap Analysis:
 ${JSON.stringify(gapAnalysis, null, 2)}
+- Target Company: ${targetCompany}
+- Target Role: ${targetRole}
 
-Target Company: ${targetCompany}
-Target Role: ${targetRole}
+CRITICAL GROUNDING RULES:
+- Base the strategy entirely on the true gaps identified in gapAnalysis; do not invent new missing skills or experiences.
+- Before recommending that the candidate "gain experience" in an area, verify that the gapAnalysis genuinely treats it as a gap and that resumeAnalysis (implicitly) does not already cover it.
+- If information is lacking to make a precise recommendation, mark it as "insufficient data" instead of guessing.
 
+SPECIFICITY REQUIREMENTS:
+- Propose concrete, time-bounded actions (e.g., "Ship <project> v1 by end of Month 2", "Complete <named course>").
+- Avoid generic statements like "work on side projects"; tie actions back to specific skill gaps and, when possible, existing projects.
+
+OUTPUT FORMAT:
 Create a detailed 6-month strategy plan. Return a JSON object:
 {
   "sixMonthGoal": "Clear goal statement",
@@ -247,7 +312,10 @@ Create a detailed 6-month strategy plan. Return a JSON object:
   "finalRecommendation": "Final recommendation summary"
 }
 
-Return ONLY valid JSON, no markdown formatting or additional text.`;
+Additional formatting constraints:
+- Return ONLY valid JSON, no markdown formatting or additional text.
+- Do not wrap the JSON in code fences.
+- Ensure the plan accounts for the candidate's existing strengths and does not ask them to start from zero in areas where they already have experience.`;
 
     const strategyResponse = await llm.invoke(strategyPrompt);
     let strategyPlan: StrategyPlan;
