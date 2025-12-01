@@ -1,6 +1,0 @@
-{
-  "version": 3,
-  "sources": [],
-  "sections": [
-    {"offset": {"line": 4, "column": 0}, "map": {"version":3,"sources":["file:///Users/theo/Desktop/ai-career-coach/app/providers.tsx"],"sourcesContent":["'use client';\nimport posthog from 'posthog-js';\nimport { PostHogProvider } from 'posthog-js/react';\nimport { useEffect } from 'react';\n\nexport function PHProvider({ children }: { children: React.ReactNode }) {\n  useEffect(() => {\n    posthog.init(process.env.NEXT_PUBLIC_POSTHOG_KEY!, {\n      api_host: process.env.NEXT_PUBLIC_POSTHOG_HOST,\n      person_profiles: 'identified_only'  // Optional: Better user tracking\n    });\n  }, []);\n  return <PostHogProvider client={posthog}>{children}</PostHogProvider>;\n}"],"names":[],"mappings":";;;;AAOiB;;AANjB;AACA;AACA;;;AAHA;;;;AAKO,SAAS,WAAW,EAAE,QAAQ,EAAiC;;IACpE,IAAA,0KAAS;gCAAC;YACR,6JAAO,CAAC,IAAI,sFAAuC;gBACjD,QAAQ;gBACR,iBAAiB,kBAAmB,iCAAiC;YACvE;QACF;+BAAG,EAAE;IACL,qBAAO,6LAAC,oLAAe;QAAC,QAAQ,6JAAO;kBAAG;;;;;;AAC5C;GARgB;KAAA"}}]
-}
