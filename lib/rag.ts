@@ -52,7 +52,7 @@ export async function getResumeContextById(
   const { data: allDocs, error } = await supabase.rpc('match_documents', {
     query_embedding: queryEmbedding,
     match_count: resumeId ? 30 : maxChunks, // Get more if filtering to ensure we have enough after filter
-  });
+  } as any);
 
   if (error) {
     throw new Error(`Failed to retrieve documents: ${error.message}`);
