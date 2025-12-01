@@ -48,3 +48,4 @@ next-env.d.ts
 # Never commit personal research PDFs
 *.pdf
 grok_chats/
+dev-error.log
