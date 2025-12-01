@@ -49,10 +49,12 @@ export async function getResumeContextById(
   const queryEmbedding = await embeddings.embedQuery(queryText);
 
   // Get documents using match_documents RPC
-  const { data: allDocs, error } = await supabase.rpc('match_documents', {
+  const { data, error } = await supabase.rpc('match_documents', {
     query_embedding: queryEmbedding,
     match_count: resumeId ? 30 : maxChunks, // Get more if filtering to ensure we have enough after filter
   } as any);
+
+  const allDocs = data as any[] | null;
 
   if (error) {
     throw new Error(`Failed to retrieve documents: ${error.message}`);
