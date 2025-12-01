@@ -1,36 +1,59 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# AI Career Coach
 
-## Getting Started
+RAG-powered career coaching app that grounds responses in your actual resume — not generic advice.
 
-First, run the development server:
+**[Live Demo](https://ai-career-coach-hazel.vercel.app)** | **[LinkedIn](https://linkedin.com/in/theobermudez)**
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+![App Screenshot](docs/screenshot.png)
+
+## What it does
+
+Upload your resume PDF → ask questions → get answers grounded in YOUR experience, with specific metrics and dates pulled from your actual background.
+
+## Tech Stack
+
+- **Frontend:** Next.js 16, React, Tailwind CSS, shadcn/ui
+- **Vector DB:** Supabase with pgvector (1536 dimensions)
+- **Embeddings:** OpenAI text-embedding-3-small
+- **LLM:** OpenAI GPT-4o-mini
+- **Orchestration:** LangGraph multi-agent pipeline
+- **Analytics:** PostHog
+
+## Architecture
+```
+PDF Upload → pdf-parse → Chunking (800/200) → Embeddings → Supabase pgvector
+                                                              ↓
+User Query → Embed Query → Cosine Similarity Search → Top-K Chunks
+                                                              ↓
+                                              Grounded LLM Response
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Key Features
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- **Grounded responses:** Uses RAG to ensure answers come from your resume, not hallucinations
+- **Multi-agent reports:** Cover letter, interview prep, gap analysis, 6-month plan
+- **Anti-hallucination prompts:** Explicit grounding rules prevent generic fluff
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Run Locally
+```bash
+git clone https://github.com/Theo-ai-lab/ai-career-coach.git
+cd ai-career-coach
+npm install
+cp .env.example .env.local  # Add your API keys
+npm run dev
+```
 
-## Learn More
+## Why I Built This
 
-To learn more about Next.js, take a look at the following resources:
+I wanted to demonstrate production-level RAG implementation — not just a tutorial, but a deployed app with real grounding, chunking strategies, and multi-agent orchestration. Built as part of my portfolio for AI APM roles.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## What I Learned
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- Chunking strategy matters: 800 tokens with 200 overlap balances context vs. precision
+- Grounding prompts need explicit rules ("ONLY use context provided")
+- pgvector HNSW indexes are fast enough for real-time UX
+- Multi-agent LangGraph requires careful state management
 
-## Deploy on Vercel
+---
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+*Built by [Theo Bermudez](https://linkedin.com/in/theobermudez)*
