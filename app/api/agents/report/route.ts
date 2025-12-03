@@ -36,6 +36,14 @@ interface StrategyPlan {
   finalRecommendation: string;
 }
 
+interface JobMatching {
+  matchScore: number;
+  strongMatches: string[];
+  gaps: string[];
+  keywordsToAdd: string[];
+  talkingPoints: string[];
+}
+
 /**
  * Helper function to safely parse JSON from LLM responses
  * Strips code fences and extracts JSON object
@@ -142,7 +150,58 @@ Additional formatting constraints:
     }
     console.log('Report pipeline: resumeAnalysis done');
 
-    // Step 3: Gap analysis vs target role
+    // Step 3: Job matching (optional – only if jobDescription provided)
+    let jobMatching: JobMatching | null = null;
+    if (jobDescription && jobDescription.trim()) {
+      console.log('Report pipeline: starting jobMatching');
+      const jobMatchingPrompt = `You are a job matching specialist. You will be given:
+
+RESUME CONTEXT:
+${resumeContext}
+
+JOB DESCRIPTION:
+${jobDescription}
+
+CRITICAL GROUNDING RULES:
+- ONLY use information from the provided RESUME CONTEXT. Do not invent or assume any experience that is not clearly supported there.
+- When you claim a "strong match", you must be able to point to specific evidence from the resume context (e.g., projects, roles, achievements).
+- When you list a "gap", it should be something that is clearly requested or implied by the JOB DESCRIPTION and not present in the resume context.
+- If the job description is vague or missing details in some areas, mark those as "insufficient data" instead of guessing.
+
+COMPARISON INSTRUCTIONS:
+- Carefully read the JOB DESCRIPTION and extract the concrete requirements, responsibilities, and preferred qualifications.
+- For each major requirement, search the RESUME CONTEXT for explicit or closely related evidence.
+- Be specific about tools, technologies, domains, and years of experience when possible.
+
+OUTPUT FORMAT:
+Return a single JSON object with this exact shape:
+{
+  "matchScore": 0-100,
+  "strongMatches": ["specific requirement that is strongly matched", "..."],
+  "gaps": ["specific requirement that is missing or weakly supported", "..."],
+  "keywordsToAdd": ["keyword or phrase that appears in the job description but not clearly in the resume", "..."],
+  "talkingPoints": ["concrete talking point mapping their past experience to this role", "..."]
+}
+
+Additional formatting rules:
+- Return ONLY valid JSON, no markdown or explanation outside the JSON.
+- Do NOT wrap the JSON in code fences.
+- If something is unclear from the resume, prefer "insufficient data" over hallucinating.`;
+
+      const jobMatchingResponse = await llm.invoke(jobMatchingPrompt);
+      try {
+        const content = jobMatchingResponse.content.toString();
+        jobMatching = parseJsonResponse(content, 'job matching') as JobMatching;
+      } catch (parseError: any) {
+        console.error('Failed to parse jobMatching:', parseError);
+        return new Response(parseError.message || 'Failed to parse job matching from model response.', { status: 500 });
+      }
+      console.log('Report pipeline: jobMatching done');
+    } else {
+      console.log('Report pipeline: skipping jobMatching (no jobDescription provided)');
+    }
+
+    // Step 4: Gap analysis vs target role
     console.log('Report pipeline: starting gapAnalysis');
     const jobDesc = jobDescription || `APM role at ${targetCompany} working on AI-native product experiences.`;
     const gapAnalysisPrompt = `You are an AI career coach analyzing fit between a candidate and ${targetRole} role at ${targetCompany}.
@@ -190,7 +249,7 @@ Additional formatting constraints:
     }
     console.log('Report pipeline: gapAnalysis done');
 
-    // Step 4: Cover letter generation
+    // Step 5: Cover letter generation
     console.log('Report pipeline: starting coverLetter');
     const coverLetterPrompt = `You are an AI career coach helping a candidate write a tailored cover letter.
 
@@ -225,7 +284,7 @@ Return ONLY the markdown cover letter text (no JSON wrapper).`;
     const coverLetterMarkdown: string = coverLetterResponse.content.toString();
     console.log('Report pipeline: coverLetter done');
 
-    // Step 5: Interview prep generation
+    // Step 6: Interview prep generation
     console.log('Report pipeline: starting interviewPrep');
     const interviewPrepPrompt = `You are an AI career coach preparing a candidate for interviews at ${targetCompany} for ${targetRole}.
 
@@ -278,7 +337,7 @@ Additional requirements:
     }
     console.log('Report pipeline: interviewPrep done');
 
-    // Step 6: 6-month strategy plan
+    // Step 7: 6-month strategy plan
     console.log('Report pipeline: starting strategyPlan');
     const strategyPrompt = `You are an AI career coach creating a 6-month strategy plan.
 
@@ -328,8 +387,32 @@ Additional formatting constraints:
     }
     console.log('Report pipeline: strategyPlan done');
 
-    // Step 7: Compile final career report markdown
+    // Step 8: Compile final career report markdown
     console.log('Report pipeline: compiling final report');
+    const jobMatchingSection = jobMatching
+      ? `
+## 3. Job Match vs. Provided Description
+
+**Overall Match Score:** ${jobMatching.matchScore}/100
+
+### Strong Matches
+
+${jobMatching.strongMatches.map(m => `- ${m}`).join('\n')}
+
+### Key Gaps
+
+${jobMatching.gaps.map(g => `- ${g}`).join('\n')}
+
+### Keywords to Add
+
+${jobMatching.keywordsToAdd.map(k => `- ${k}`).join('\n')}
+
+### Talking Points for Interviews
+
+${jobMatching.talkingPoints.map(t => `- ${t}`).join('\n')}
+`
+      : '';
+
     const reportMarkdown = `# AI Career Report → ${targetCompany} ${targetRole}
 
 ## 1. Resume Summary
@@ -368,11 +451,13 @@ ${gapAnalysis.experienceGaps.map(g => `- ${g}`).join('\n')}
 
 ${gapAnalysis.recommendations.map(r => `- ${r}`).join('\n')}
 
-## 3. Tailored Cover Letter
+${jobMatchingSection}
+
+## ${jobMatching ? '4' : '3'}. Tailored Cover Letter
 
 ${coverLetterMarkdown}
 
-## 4. Interview Prep
+## ${jobMatching ? '5' : '4'}. Interview Prep
 
 ### Behavioral Questions
 
@@ -390,7 +475,7 @@ ${interviewPrep.technical.map(qa => `**Q:** ${qa.question}\n\n**A:** ${qa.answer
 
 ${interviewPrep.metaSummary}
 
-## 5. 6-Month Strategy Plan
+## ${jobMatching ? '6' : '5'}. 6-Month Strategy Plan
 
 ### Goal
 

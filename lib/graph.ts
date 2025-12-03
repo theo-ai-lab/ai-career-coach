@@ -17,6 +17,7 @@ const graph = new StateGraph<any>({
     resumeText: null,
     resumeAnalysis: null,
     jobDescription: null,
+    jobMatch: null,
     gapAnalysis: null,
     coverLetter: null,
     interviewPrep: null,
@@ -37,7 +38,11 @@ graph.addNode("resume_analyzer", async (state: any) => {
 
 
 graph.addNode("gap_finder", async (state: any) => {
-  const gaps = await findGaps(state.resumeAnalysis, state.jobDescription);
+  const gaps = await findGaps(
+    state.resumeAnalysis,
+    state.jobDescription,
+    state.jobMatch
+  );
   return { ...state, gapAnalysis: gaps };
 });
 
@@ -55,7 +60,8 @@ graph.addNode("interview_prep", async (state: any) => {
     state.resumeAnalysis,
     state.gapAnalysis,
     state.jobDescription,
-    state.targetCompany || "OpenAI"
+    state.targetCompany || "OpenAI",
+    state.jobMatch
   );
   return { ...state, interviewPrep: prep };
 });
@@ -64,7 +70,8 @@ graph.addNode("strategy_advisor", async (state: any) => {
   const plan = await generateStrategy(
     state.resumeAnalysis,
     state.gapAnalysis,
-    state.targetCompany || "OpenAI"
+    state.targetCompany || "OpenAI",
+    state.jobMatch
   );
   return { ...state, strategyPlan: plan };
 });

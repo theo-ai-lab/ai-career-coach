@@ -1,5 +1,6 @@
 import { ChatOpenAI } from "@langchain/openai";
 import { StrategyPlanSchema } from "./schema";
+import type { JobMatch } from "@/lib/agents/job-matcher/schema";
 
 function getLLM() {
   return new ChatOpenAI({ model: "gpt-4o", temperature: 0.3 });
@@ -8,10 +9,12 @@ function getLLM() {
 export async function generateStrategy(
   resumeAnalysis: any,
   gapAnalysis: any,
-  targetCompany: string
+  targetCompany: string,
+  jobMatch?: JobMatch
 ) {
   const resumeJson = JSON.stringify(resumeAnalysis, null, 2);
   const gapsJson = JSON.stringify(gapAnalysis, null, 2);
+  const jobMatchJson = jobMatch ? JSON.stringify(jobMatch, null, 2) : "null";
 
   const prompt = `
 You are the world's best AI career strategist. Theo Bermudez (USC '24, built full-stack LangGraph agents, RAG systems, Next.js AI apps) wants to land an APM role at ${targetCompany} in 6 months.
@@ -21,10 +24,13 @@ You are given:
 ${resumeJson}
 - Structured gap analysis JSON:
 ${gapsJson}
+- Optional job-resume match analysis JSON from a dedicated job-matcher agent:
+${jobMatchJson}
 
 CRITICAL GROUNDING RULES:
 - Treat the resumeAnalysis and gapAnalysis as ground truth; do NOT invent new degrees, roles, or domains.
-- Before recommending that Theo "gain experience" in any area, SEARCH the resumeAnalysis for that area and only label it as a gap if it is truly absent.
+- If jobMatchJson is provided (not null), treat its "gaps", "keywordsToAdd", and "talkingPoints" as the authoritative comparison between Theo's resume and this specific role. Use that to prioritize which skills and experiences to focus on over the next 6 months.
+- Before recommending that Theo "gain experience" in any area, SEARCH the resumeAnalysis and jobMatchJson; only label it as a gap if it is truly absent from the resume and identified as a gap or missing keyword in the job match.
 - Never claim a skill or domain (e.g., AI ethics, RAG, product experimentation) is missing when it appears in the analysis, including synonyms and related coursework (e.g., AI minor).
 - Where the analysis lacks clear evidence for a recommendation, explicitly mark that recommendation as based on "insufficient data" rather than hallucinating specifics.
 

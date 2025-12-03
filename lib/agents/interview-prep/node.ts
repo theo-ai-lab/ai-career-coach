@@ -1,5 +1,6 @@
 import { ChatOpenAI } from "@langchain/openai";
 import { InterviewPrepSchema } from "./schema";
+import type { JobMatch } from "@/lib/agents/job-matcher/schema";
 
 function getLLM() {
   return new ChatOpenAI({ model: "gpt-4o", temperature: 0.2 });
@@ -9,10 +10,12 @@ export async function generateInterviewPrep(
   resumeAnalysis: any,
   gapAnalysis: any,
   jobDescription: string,
-  company: string
+  company: string,
+  jobMatch?: JobMatch
 ) {
   const resumeJson = JSON.stringify(resumeAnalysis, null, 2);
   const gapsJson = JSON.stringify(gapAnalysis, null, 2);
+  const jobMatchJson = jobMatch ? JSON.stringify(jobMatch, null, 2) : "null";
 
   const prompt = `
 You are an elite AI interview coach preparing Theo Bermudez (USC '24, built full-stack LangGraph agents, RAG pipelines, Next.js AI apps) for a ${company} APM interview.
@@ -22,12 +25,15 @@ You are given:
 ${resumeJson}
 - Structured gap analysis JSON:
 ${gapsJson}
-- Job description:
+- Raw job description:
 ${jobDescription}
+- Optional job-resume match analysis JSON from a dedicated job-matcher agent:
+${jobMatchJson}
 
 CRITICAL GROUNDING RULES:
-- Every question and answer MUST be grounded in the provided resumeAnalysis, gapAnalysis, and job description.
-- Before mentioning a gap or "area to improve", SEARCH the resumeAnalysis for related keywords and existing experience; never say the candidate lacks a skill that is clearly present (e.g., RAG, AI ethics, experimentation).
+- Every question and answer MUST be grounded in the provided resumeAnalysis, gapAnalysis, and (when available) the job-resume match analysis.
+- If jobMatchJson is provided (not null), treat its "strongMatches", "gaps", "keywordsToAdd", and "talkingPoints" as the authoritative comparison between the resume and this specific job. Do NOT re-derive the comparison from the raw job description; instead, use the jobMatch data to choose which areas to emphasize or probe.
+- Before mentioning a gap or "area to improve", SEARCH the resumeAnalysis and gapAnalysis for related keywords and existing experience; never say the candidate lacks a skill that is clearly present (e.g., RAG, AI ethics, experimentation).
 - If the context is insufficient to support a specific example, respond with "insufficient data" rather than inventing details.
 
 SPECIFICITY REQUIREMENTS:

@@ -49,3 +49,5 @@ next-env.d.ts
 *.pdf
 grok_chats/
 dev-error.log
+.next
+.next 2

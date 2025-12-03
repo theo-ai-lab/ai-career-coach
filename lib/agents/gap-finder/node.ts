@@ -1,10 +1,9 @@
 // lib/agents/gap-finder/node.ts
 
 import { GapAnalysisSchema } from "./schema";
-
 import { ChatOpenAI } from "@langchain/openai";
-
 import { ResumeAnalysis } from "@/lib/agents/resume-analyzer/schema";
+import type { JobMatch } from "@/lib/agents/job-matcher/schema";
 
 function getLLM() {
   return new ChatOpenAI({ model: "gpt-4o", temperature: 0 });
@@ -14,7 +13,9 @@ export async function findGaps(
 
   resumeAnalysis: ResumeAnalysis,
 
-  jobDescription: string
+  jobDescription: string,
+
+  jobMatch?: JobMatch
 
 ) {
 
@@ -26,10 +27,13 @@ You are given:
 ${JSON.stringify(resumeAnalysis, null, 2)}
 - Job description text:
 ${jobDescription}
+- Optional job-resume match analysis JSON (if provided by a separate job-matcher agent):
+${jobMatch ? JSON.stringify(jobMatch, null, 2) : "null"}
 
 CRITICAL GROUNDING RULES:
 - You MUST treat the resume analysis JSON as ground truth for the candidate's background.
-- Before listing any "missingTechnicalSkills", "missingProductSkills", or "experienceGaps", SEARCH the resume analysis for related keywords, synonyms, and closely related concepts.
+- If a job-resume match analysis JSON is provided, treat it as the *authoritative comparison* between the resume and the job description. Do NOT re-compare the raw job description from scratch; instead, use its "strongMatches", "gaps", "keywordsToAdd", and "talkingPoints" to inform your gap analysis.
+- Before listing any "missingTechnicalSkills", "missingSoftSkills", or "missingExperience", SEARCH the resume analysis for related keywords, synonyms, and closely related concepts.
 - In particular, you MUST check the following before claiming any skill is missing:
   - the core technical, soft, and tools skills arrays,
   - any education entries (including majors, minors, named courses, and AI-related programs),
