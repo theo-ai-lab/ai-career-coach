@@ -113,7 +113,7 @@ Additional formatting rules:
 
     let match: JobMatch;
     try {
-      match = parseJsonResponse(rawContent) as JobMatchResult;
+      match = parseJsonResponse(rawContent) as JobMatch;
     } catch (error: any) {
       console.error("Job matcher: failed to parse model response", error);
       return Response.json(
