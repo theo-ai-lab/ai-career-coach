@@ -1,5 +1,59 @@
 import { NextRequest } from 'next/server';
 import { getResumeContextById, getChatClient } from '@/lib/rag';
+import { evaluateCoachingQuality } from '@/lib/evals/coaching-quality';
+import { getSupabase } from '@/lib/supabase';
+
+interface EvalResult {
+  scores: {
+    actionability: number;
+    personalization: number;
+    honesty: number;
+    grounding: number;
+  };
+  reasoning: string;
+  overall: number;
+}
+
+/**
+ * Helper to evaluate a coaching response (non-blocking)
+ */
+async function evaluateResponse(
+  sectionName: string,
+  query: string,
+  response: string,
+  contexts: string[],
+  responseId: string
+): Promise<EvalResult | null> {
+  try {
+    const evalResult = await evaluateCoachingQuality({
+      query,
+      response,
+      contexts,
+    });
+
+    // Store in Supabase (non-blocking)
+    try {
+      const supabase = getSupabase();
+      await supabase.from('evals').insert({
+        response_id: `${responseId}-${sectionName}`,
+        query,
+        response,
+        contexts,
+        scores: evalResult.scores,
+        reasoning: evalResult.reasoning,
+        overall_score: evalResult.overall,
+      });
+    } catch (dbError: any) {
+      console.error(`Failed to store eval for ${sectionName}:`, dbError.message);
+      // Don't fail if DB write fails
+    }
+
+    return evalResult;
+  } catch (error: any) {
+    console.error(`Eval error for ${sectionName}:`, error.message);
+    return null;
+  }
+}
 
 interface RequestBody {
   resumeId: string;
@@ -150,6 +204,15 @@ Additional formatting constraints:
     }
     console.log('Report pipeline: resumeAnalysis done');
 
+    // Evaluate resume analysis
+    const resumeAnalysisEval = await evaluateResponse(
+      'resumeAnalysis',
+      `Analyze my resume and provide a summary of my background, strengths, projects, and core skills.`,
+      JSON.stringify(resumeAnalysis, null, 2),
+      chunks,
+      resumeId
+    );
+
     // Step 3: Job matching (optional – only if jobDescription provided)
     let jobMatching: JobMatching | null = null;
     if (jobDescription && jobDescription.trim()) {
@@ -249,6 +312,15 @@ Additional formatting constraints:
     }
     console.log('Report pipeline: gapAnalysis done');
 
+    // Evaluate gap analysis
+    const gapAnalysisEval = await evaluateResponse(
+      'gapAnalysis',
+      `Analyze the fit between my background and the ${targetRole} role at ${targetCompany}. Identify gaps and provide recommendations.`,
+      JSON.stringify(gapAnalysis, null, 2),
+      chunks,
+      resumeId
+    );
+
     // Step 5: Cover letter generation
     console.log('Report pipeline: starting coverLetter');
     const coverLetterPrompt = `You are an AI career coach helping a candidate write a tailored cover letter.
@@ -283,6 +355,15 @@ Return ONLY the markdown cover letter text (no JSON wrapper).`;
     const coverLetterResponse = await llm.invoke(coverLetterPrompt);
     const coverLetterMarkdown: string = coverLetterResponse.content.toString();
     console.log('Report pipeline: coverLetter done');
+
+    // Evaluate cover letter
+    const coverLetterEval = await evaluateResponse(
+      'coverLetter',
+      `Write a tailored cover letter for the ${targetRole} role at ${targetCompany}.`,
+      coverLetterMarkdown,
+      chunks,
+      resumeId
+    );
 
     // Step 6: Interview prep generation
     console.log('Report pipeline: starting interviewPrep');
@@ -337,6 +418,15 @@ Additional requirements:
     }
     console.log('Report pipeline: interviewPrep done');
 
+    // Evaluate interview prep
+    const interviewPrepEval = await evaluateResponse(
+      'interviewPrep',
+      `Prepare me for interviews at ${targetCompany} for the ${targetRole} role. Generate behavioral, product, and technical questions with answers.`,
+      JSON.stringify(interviewPrep, null, 2),
+      chunks,
+      resumeId
+    );
+
     // Step 7: 6-month strategy plan
     console.log('Report pipeline: starting strategyPlan');
     const strategyPrompt = `You are an AI career coach creating a 6-month strategy plan.
@@ -387,8 +477,25 @@ Additional formatting constraints:
     }
     console.log('Report pipeline: strategyPlan done');
 
+    // Evaluate strategy plan
+    const strategyPlanEval = await evaluateResponse(
+      'strategyPlan',
+      `Create a 6-month strategy plan to help me land the ${targetRole} role at ${targetCompany}.`,
+      JSON.stringify(strategyPlan, null, 2),
+      chunks,
+      resumeId
+    );
+
     // Step 8: Compile final career report markdown
     console.log('Report pipeline: compiling final report');
+    
+    // Helper to format confidence indicator
+    const formatConfidence = (evalResult: EvalResult | null, sectionName: string): string => {
+      if (!evalResult) return '';
+      const score = evalResult.overall;
+      const emoji = score >= 80 ? '🟢' : score >= 60 ? '🟡' : '🔴';
+      return `\n\n*${emoji} Quality Score: ${score}/100 (${sectionName})*`;
+    };
     const jobMatchingSection = jobMatching
       ? `
 ## 3. Job Match vs. Provided Description
@@ -417,7 +524,7 @@ ${jobMatching.talkingPoints.map(t => `- ${t}`).join('\n')}
 
 ## 1. Resume Summary
 
-${resumeAnalysis.summary}
+${resumeAnalysis.summary}${formatConfidence(resumeAnalysisEval, 'Resume Analysis')}
 
 ### Key Strengths
 
@@ -449,13 +556,13 @@ ${gapAnalysis.experienceGaps.map(g => `- ${g}`).join('\n')}
 
 ### Recommendations
 
-${gapAnalysis.recommendations.map(r => `- ${r}`).join('\n')}
+${gapAnalysis.recommendations.map(r => `- ${r}`).join('\n')}${formatConfidence(gapAnalysisEval, 'Gap Analysis')}
 
 ${jobMatchingSection}
 
 ## ${jobMatching ? '4' : '3'}. Tailored Cover Letter
 
-${coverLetterMarkdown}
+${coverLetterMarkdown}${formatConfidence(coverLetterEval, 'Cover Letter')}
 
 ## ${jobMatching ? '5' : '4'}. Interview Prep
 
@@ -473,7 +580,7 @@ ${interviewPrep.technical.map(qa => `**Q:** ${qa.question}\n\n**A:** ${qa.answer
 
 ### Interview Strategy Summary
 
-${interviewPrep.metaSummary}
+${interviewPrep.metaSummary}${formatConfidence(interviewPrepEval, 'Interview Prep')}
 
 ## ${jobMatching ? '6' : '5'}. 6-Month Strategy Plan
 
@@ -487,11 +594,23 @@ ${strategyPlan.monthlyBreakdown.map(m => `#### Month ${m.month}: ${m.focus}\n\n$
 
 ### Final Recommendation
 
-${strategyPlan.finalRecommendation}
+${strategyPlan.finalRecommendation}${formatConfidence(strategyPlanEval, 'Strategy Plan')}
 
 ---
 
-*Report generated using AI Career Coach - Grounded in your actual resume via RAG*`;
+*Report generated using AI Career Coach - Grounded in your actual resume via RAG*
+
+## Quality Metrics
+
+${[
+  resumeAnalysisEval && `**Resume Analysis:** ${resumeAnalysisEval.overall}/100`,
+  gapAnalysisEval && `**Gap Analysis:** ${gapAnalysisEval.overall}/100`,
+  coverLetterEval && `**Cover Letter:** ${coverLetterEval.overall}/100`,
+  interviewPrepEval && `**Interview Prep:** ${interviewPrepEval.overall}/100`,
+  strategyPlanEval && `**Strategy Plan:** ${strategyPlanEval.overall}/100`,
+].filter(Boolean).join('\n')}
+
+*View detailed evaluations at /admin/evals*`;
 
     console.log('Report pipeline: final report compiled');
 
