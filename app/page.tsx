@@ -20,8 +20,6 @@ export default function Home() {
 
   const [input, setInput] = useState('');
 
-  const [jobDescription, setJobDescription] = useState('');
-
   const [loading, setLoading] = useState(false);
 
   const [currentResumeId, setCurrentResumeId] = useState<string | null>(
@@ -84,7 +82,7 @@ export default function Home() {
 
           <h1 className="text-2xl font-bold text-slate-800">AI Career Coach</h1>
 
-          <p className="text-sm text-slate-600">Upload your resume → get coaching grounded in your actual experience</p>
+          <p className="text-sm text-slate-600">Ask anything about my background → I'll answer using only my real resume</p>
 
         </div>
 
@@ -186,7 +184,6 @@ export default function Home() {
 
           <Button
             variant="outline"
-            className="border border-slate-200 bg-slate-50"
             onClick={() => {
               localStorage.removeItem('currentResumeId');
               setCurrentResumeId(null);
@@ -198,7 +195,6 @@ export default function Home() {
 
           <Button
             variant="outline"
-            className="border border-slate-200 bg-slate-50"
             onClick={async () => {
               try {
                 const res = await fetch("/api/agents/cover-letter", {
@@ -222,12 +218,11 @@ export default function Home() {
               }
             }}
           >
-            Generate Cover Letter
+            Generate Cover Letter for OpenAI
           </Button>
 
           <Button
             variant="outline"
-            className="border border-slate-200 bg-slate-50"
             onClick={async () => {
               try {
                 const res = await fetch("/api/agents/interview-prep", {
@@ -253,12 +248,11 @@ export default function Home() {
               }
             }}
           >
-            Generate Interview Prep
+            Generate Interview Prep for OpenAI
           </Button>
 
           <Button
             variant="outline"
-            className="border border-slate-200 bg-slate-50"
             onClick={async () => {
               try {
                 const res = await fetch("/api/agents/strategy", {
@@ -283,7 +277,7 @@ export default function Home() {
               }
             }}
           >
-            Generate My 6-Month Plan
+            Generate My 6-Month Plan → OpenAI
           </Button>
 
           <Button
@@ -301,20 +295,15 @@ export default function Home() {
 
                 setReportLoading(true);
 
-                const payload: any = {
-                  resumeId,
-                  targetCompany: "OpenAI",
-                  targetRole: "APM",
-                };
-
-                if (jobDescription.trim()) {
-                  payload.jobDescription = jobDescription.trim();
-                }
-
                 const res = await fetch("/api/agents/report", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify(payload),
+                  body: JSON.stringify({
+                    resumeId,
+                    targetCompany: "OpenAI",
+                    targetRole: "APM",
+                    jobDescription: "APM role at OpenAI working on AI-native product experiences.",
+                  }),
                 });
                 if (!res.ok) {
                   const text = await res.text();
@@ -339,17 +328,6 @@ export default function Home() {
           >
             {reportLoading ? "Generating Report..." : "Download Full Career Report (Markdown → export to PDF)"}
           </Button>
-          <div className="mt-2">
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Optional: Paste a target job description to personalize the report
-            </label>
-            <textarea
-              className="w-full border rounded-md p-2 text-sm min-h-[120px] focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Paste a job description here (e.g., Product Manager role at OpenAI)..."
-              value={jobDescription}
-              onChange={(e) => setJobDescription(e.target.value)}
-            />
-          </div>
         </div>
 
       </Card>
