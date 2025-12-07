@@ -28,6 +28,12 @@ export default function Home() {
 
   );
 
+  const [sessionId, setSessionId] = useState<string | null>(
+
+    typeof window !== 'undefined' ? localStorage.getItem('sessionId') : null
+
+  );
+
   const [reportLoading, setReportLoading] = useState(false);
 
 
@@ -49,14 +55,30 @@ export default function Home() {
 
 
     const resumeId = typeof window !== 'undefined' ? localStorage.getItem('currentResumeId') : null;
+    
+    // Get or create sessionId
+    let currentSessionId = sessionId;
+    if (!currentSessionId) {
+      currentSessionId = crypto.randomUUID();
+      setSessionId(currentSessionId);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('sessionId', currentSessionId);
+      }
+    }
 
+    // Send messages array for session summarization
     const res = await fetch('/api/query', {
 
       method: 'POST',
 
       headers: { 'Content-Type': 'application/json' },
 
-      body: JSON.stringify({ query: userMessage, resumeId }),
+      body: JSON.stringify({ 
+        query: userMessage, 
+        resumeId,
+        sessionId: currentSessionId,
+        messages: messages.map(m => ({ role: m.role, content: m.content }))
+      }),
 
     });
 
@@ -65,6 +87,14 @@ export default function Home() {
     const data = await res.json();
 
     setMessages(prev => [...prev, { role: 'assistant', content: data.answer }]);
+    
+    // Update sessionId if returned from server
+    if (data.sessionId && data.sessionId !== currentSessionId) {
+      setSessionId(data.sessionId);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('sessionId', data.sessionId);
+      }
+    }
 
     setLoading(false);
 
