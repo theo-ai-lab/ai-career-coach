@@ -14,9 +14,21 @@ import { Card } from '@/components/ui/card';
 
 
 
+interface Message {
+  role: 'user' | 'assistant';
+  content: string;
+  scores?: {
+    overall: number;
+    actionability: number;
+    personalization: number;
+    honesty: number;
+    grounding: number;
+  } | null;
+}
+
 export default function Home() {
 
-  const [messages, setMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
 
   const [input, setInput] = useState('');
 
@@ -86,7 +98,11 @@ export default function Home() {
 
     const data = await res.json();
 
-    setMessages(prev => [...prev, { role: 'assistant', content: data.answer }]);
+    setMessages(prev => [...prev, { 
+      role: 'assistant', 
+      content: data.answer,
+      scores: data.scores || null
+    }]);
     
     // Update sessionId if returned from server
     if (data.sessionId && data.sessionId !== currentSessionId) {
@@ -149,6 +165,14 @@ export default function Home() {
                 {m.content}
 
               </div>
+
+              {/* Low Confidence Warning (only when score < 75) */}
+              {m.role === 'assistant' && m.scores && m.scores.overall < 75 && (
+                <div className="mt-2 text-xs text-amber-600 flex items-center gap-1">
+                  <span>⚠️</span>
+                  <span>I'm less confident about this response. Consider verifying this information.</span>
+                </div>
+              )}
 
             </div>
 

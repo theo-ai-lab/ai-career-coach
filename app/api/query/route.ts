@@ -8,6 +8,8 @@ import { ChatOpenAI } from '@langchain/openai';
 
 import { getMemoryContext, summarizeSessionAsync } from '@/lib/memory';
 
+import { evaluateCoachingQuality } from '@/lib/evals/coaching-quality';
+
 import { randomUUID } from 'crypto';
 
 
@@ -64,14 +66,39 @@ export async function POST(req: NextRequest) {
       match_count: resumeId ? 20 : 6, // Get more if filtering to ensure we have enough after filter
     });
 
+    // Debug logging
+    if (resumeId) {
+      console.log('[Query] resumeId provided:', resumeId);
+      console.log('[Query] allDocs count:', allDocs?.length || 0);
+      if (allDocs && allDocs.length > 0) {
+        console.log('[Query] Sample doc metadata:', JSON.stringify(allDocs[0].metadata, null, 2));
+        console.log('[Query] Sample doc resume_id:', allDocs[0].metadata?.resume_id);
+      }
+    }
+
     // Filter by resume_id in metadata if provided
     const docs = resumeId && allDocs 
-      ? allDocs.filter((doc: any) => doc.metadata?.resume_id === resumeId).slice(0, 6)
+      ? allDocs.filter((doc: any) => {
+          const docResumeId = doc.metadata?.resume_id;
+          const matches = docResumeId === resumeId;
+          if (!matches && docResumeId) {
+            console.log(`[Query] Mismatch - doc resume_id: "${docResumeId}" vs query resumeId: "${resumeId}"`);
+          }
+          return matches;
+        }).slice(0, 6)
       : allDocs;
 
-    if (error || !docs || docs.length === 0) {
+    if (error) {
+      console.error('[Query] RPC error:', error);
       return NextResponse.json({ answer: 'No relevant experience found.' });
     }
+
+    if (!docs || docs.length === 0) {
+      console.log('[Query] No documents found after filtering. resumeId:', resumeId, 'allDocs count:', allDocs?.length || 0);
+      return NextResponse.json({ answer: 'No relevant experience found.' });
+    }
+
+    console.log('[Query] Found', docs.length, 'documents after filtering');
 
     const context = docs.map((d: any) => d.content).join('\n\n');
 
@@ -111,6 +138,36 @@ Do NOT say "According to my memory" or "My records show" - be natural.`;
     const response = await llm.invoke(systemPrompt);
     const answer = response.content.toString();
 
+    // Evaluate response quality (fire-and-forget, but we'll await it to return scores)
+    let evalResult = null;
+    try {
+      evalResult = await evaluateCoachingQuality({
+        query,
+        response: answer,
+        contexts: docs.map((d: any) => d.content),
+      });
+      
+      // Store eval in Supabase (non-blocking)
+      try {
+        const supabase = getSupabaseClient();
+        await supabase.from('evals').insert({
+          response_id: `${currentSessionId}-query`,
+          query,
+          response: answer,
+          contexts: docs.map((d: any) => d.content),
+          scores: evalResult.scores,
+          reasoning: evalResult.reasoning,
+          overall_score: evalResult.overall,
+        });
+      } catch (dbError: any) {
+        console.warn('[Eval] Failed to store eval:', dbError.message);
+        // Don't fail if DB write fails
+      }
+    } catch (evalError: any) {
+      console.warn('[Eval] Failed to evaluate response:', evalError.message);
+      // Continue without scores if evaluation fails
+    }
+
     // Fire-and-forget session summarization (zero latency impact)
     if (messages && Array.isArray(messages) && messages.length > 0) {
       // Include current query and response in messages for summarization
@@ -131,7 +188,14 @@ Do NOT say "According to my memory" or "My records show" - be natural.`;
     return NextResponse.json({
       answer,
       sources: docs.map((d: any) => ({ content: d.content, similarity: d.similarity })),
-      sessionId: currentSessionId, // Return sessionId so frontend can track it
+      sessionId: currentSessionId,
+      scores: evalResult ? {
+        overall: evalResult.overall,
+        actionability: evalResult.scores.actionability,
+        personalization: evalResult.scores.personalization,
+        honesty: evalResult.scores.honesty,
+        grounding: evalResult.scores.grounding,
+      } : null,
     });
 
   } catch (error: any) {
