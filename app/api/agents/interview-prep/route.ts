@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { generateInterviewPrep } from "@/lib/agents/interview-prep/node";
+import { detectHighStakesInData } from "@/lib/hitl-detection";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,7 +17,10 @@ export async function POST(req: NextRequest) {
       company || "OpenAI"
     );
 
-    return Response.json({ success: true, prep });
+    // Detect high-stakes content (e.g., negotiation tactics, salary discussions)
+    const highStakes = detectHighStakesInData(prep);
+
+    return Response.json({ success: true, prep, highStakes });
   } catch (error: any) {
     console.error("Interview prep agent error:", error);
     return Response.json(
