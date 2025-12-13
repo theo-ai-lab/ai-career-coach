@@ -12,6 +12,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 
 import { Card } from '@/components/ui/card';
 
+import { HITLWarning } from '@/components/HITLWarning';
+
 
 
 interface Message {
@@ -47,6 +49,20 @@ export default function Home() {
   );
 
   const [reportLoading, setReportLoading] = useState(false);
+
+  // Agent output state
+  const [coverLetterOutput, setCoverLetterOutput] = useState<{
+    content: any;
+    highStakes: boolean;
+  } | null>(null);
+  const [interviewPrepOutput, setInterviewPrepOutput] = useState<{
+    content: any;
+    highStakes: boolean;
+  } | null>(null);
+  const [strategyOutput, setStrategyOutput] = useState<{
+    content: any;
+    highStakes: boolean;
+  } | null>(null);
 
 
 
@@ -266,7 +282,10 @@ export default function Home() {
                   alert("Failed to generate cover letter: " + (json.error ?? "Unknown error"));
                   return;
                 }
-                alert("Cover letter ready!\n\n" + json.letter.letter);
+                setCoverLetterOutput({
+                  content: json.letter,
+                  highStakes: json.highStakes || false,
+                });
               } catch (err: any) {
                 alert("Failed to generate cover letter: " + (err?.message ?? "Unknown error"));
               }
@@ -295,8 +314,10 @@ export default function Home() {
                   alert("Failed to generate interview prep: " + (json.error ?? "Unknown error"));
                   return;
                 }
-                alert("Interview prep ready! 10 questions with perfect answers generated.");
-                console.log(json.prep);
+                setInterviewPrepOutput({
+                  content: json.prep,
+                  highStakes: json.highStakes || false,
+                });
               } catch (err: any) {
                 alert("Failed to generate interview prep: " + (err?.message ?? "Unknown error"));
               }
@@ -324,8 +345,10 @@ export default function Home() {
                   alert("Failed to generate strategy plan: " + (json.error ?? "Unknown error"));
                   return;
                 }
-                alert("Your 6-month plan to land OpenAI is ready! Check the console for details.");
-                console.log(json.plan);
+                setStrategyOutput({
+                  content: json.plan,
+                  highStakes: json.highStakes || false,
+                });
               } catch (err: any) {
                 alert("Failed to generate strategy plan: " + (err?.message ?? "Unknown error"));
               }
@@ -385,6 +408,118 @@ export default function Home() {
         </div>
 
       </Card>
+
+      {/* Cover Letter Output Modal */}
+      {coverLetterOutput && (
+        <Card className="fixed inset-4 bg-white z-50 overflow-auto shadow-2xl p-6">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-bold">Cover Letter</h2>
+            <Button variant="outline" onClick={() => setCoverLetterOutput(null)}>
+              Close
+            </Button>
+          </div>
+          <div className="mb-4 p-4 bg-slate-50 rounded-lg whitespace-pre-wrap">
+            {coverLetterOutput.content.letter || JSON.stringify(coverLetterOutput.content, null, 2)}
+          </div>
+          {coverLetterOutput.highStakes && (
+            <HITLWarning
+              onDownload={() => {
+                const text = coverLetterOutput.content.letter || JSON.stringify(coverLetterOutput.content, null, 2);
+                navigator.clipboard.writeText(text);
+                alert("Cover letter copied to clipboard!");
+              }}
+              downloadLabel="Copy Cover Letter"
+            />
+          )}
+          {!coverLetterOutput.highStakes && (
+            <Button
+              onClick={() => {
+                const text = coverLetterOutput.content.letter || JSON.stringify(coverLetterOutput.content, null, 2);
+                navigator.clipboard.writeText(text);
+                alert("Cover letter copied to clipboard!");
+              }}
+            >
+              Copy Cover Letter
+            </Button>
+          )}
+        </Card>
+      )}
+
+      {/* Interview Prep Output Modal */}
+      {interviewPrepOutput && (
+        <Card className="fixed inset-4 bg-white z-50 overflow-auto shadow-2xl p-6">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-bold">Interview Preparation</h2>
+            <Button variant="outline" onClick={() => setInterviewPrepOutput(null)}>
+              Close
+            </Button>
+          </div>
+          <div className="mb-4 p-4 bg-slate-50 rounded-lg">
+            <pre className="whitespace-pre-wrap text-sm">
+              {JSON.stringify(interviewPrepOutput.content, null, 2)}
+            </pre>
+          </div>
+          {interviewPrepOutput.highStakes && (
+            <HITLWarning
+              onDownload={() => {
+                const text = JSON.stringify(interviewPrepOutput.content, null, 2);
+                navigator.clipboard.writeText(text);
+                alert("Interview prep copied to clipboard!");
+              }}
+              downloadLabel="Copy Interview Prep"
+            />
+          )}
+          {!interviewPrepOutput.highStakes && (
+            <Button
+              onClick={() => {
+                const text = JSON.stringify(interviewPrepOutput.content, null, 2);
+                navigator.clipboard.writeText(text);
+                alert("Interview prep copied to clipboard!");
+              }}
+            >
+              Copy Interview Prep
+            </Button>
+          )}
+        </Card>
+      )}
+
+      {/* Strategy Output Modal */}
+      {strategyOutput && (
+        <Card className="fixed inset-4 bg-white z-50 overflow-auto shadow-2xl p-6">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-bold">6-Month Strategy Plan</h2>
+            <Button variant="outline" onClick={() => setStrategyOutput(null)}>
+              Close
+            </Button>
+          </div>
+          <div className="mb-4 p-4 bg-slate-50 rounded-lg">
+            <pre className="whitespace-pre-wrap text-sm">
+              {JSON.stringify(strategyOutput.content, null, 2)}
+            </pre>
+          </div>
+          {strategyOutput.highStakes && (
+            <HITLWarning
+              onDownload={() => {
+                const text = JSON.stringify(strategyOutput.content, null, 2);
+                navigator.clipboard.writeText(text);
+                alert("Strategy plan copied to clipboard!");
+              }}
+              downloadLabel="Copy Strategy Plan"
+            />
+          )}
+          {!strategyOutput.highStakes && (
+            <Button
+              onClick={() => {
+                const text = JSON.stringify(strategyOutput.content, null, 2);
+                navigator.clipboard.writeText(text);
+                alert("Strategy plan copied to clipboard!");
+              }}
+            >
+              Copy Strategy Plan
+            </Button>
+          )}
+        </Card>
+      )}
 
     </div>
 
