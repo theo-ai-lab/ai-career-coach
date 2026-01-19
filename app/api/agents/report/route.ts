@@ -40,11 +40,12 @@ export async function POST(req: NextRequest) {
     }
 
     // Return the compiled report
-    if (!result.reportMarkdown) {
+    const markdown = result.reportMarkdown as string | undefined;
+    if (!markdown) {
       return new Response('Error: Report generation completed but no markdown was produced.', { status: 500 });
     }
 
-    return new Response('reportMarkdown' in result ? result.reportMarkdown : '', {
+    return new Response(markdown, {
       status: 200,
       headers: { 'Content-Type': 'text/markdown; charset=utf-8' },
     });
