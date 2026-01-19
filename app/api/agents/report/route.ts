@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
       return new Response('Error: Report generation completed but no markdown was produced.', { status: 500 });
     }
 
-    return new Response(result.reportMarkdown, {
+    return new Response(result.reportMarkdown || '', {
       status: 200,
       headers: { 'Content-Type': 'text/markdown; charset=utf-8' },
     });
