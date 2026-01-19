@@ -45,6 +45,9 @@ next-env.d.ts
 # cursor mcp configuration (contains API keys)
 .cursor/
 
+# cursor rules (local workflow prompts)
+.cursorrules/
+
 # Never commit personal research PDFs
 *.pdf
 grok_chats/
