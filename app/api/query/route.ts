@@ -191,7 +191,7 @@ Do NOT say "According to my memory" or "My records show" - be natural.`;
           scores: evalResult.scores,
           reasoning: evalResult.reasoning,
           overall_score: evalResult.overall,
-        });
+        } as any);
       } catch (dbError: any) {
         console.warn('[Eval] Failed to store eval:', dbError.message);
         // Don't fail if DB write fails
