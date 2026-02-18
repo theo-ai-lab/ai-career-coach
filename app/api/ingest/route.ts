@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
 
       metadata: { source: 'uploaded_resume', ...chunk.metadata }
 
-    }))
+    })) as any
 
   );
 

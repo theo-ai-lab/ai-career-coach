@@ -49,7 +49,7 @@ export async function upsertUserProfile(profile: UserProfile): Promise<void> {
       .upsert({
         ...profile,
         updated_at: new Date().toISOString()
-      }, { onConflict: 'user_id' });
+      } as any, { onConflict: 'user_id' });
     
     if (error) {
       console.warn('[Memory] Failed to upsert profile:', error.message);

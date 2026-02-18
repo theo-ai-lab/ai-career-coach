@@ -101,7 +101,7 @@ Return JSON:
         topics_discussed: parsed.topics_discussed || [],
         action_items: parsed.action_items || [],
         sentiment: parsed.sentiment || 'neutral',
-      });
+      } as any);
       
       if (insertError) {
         console.warn('[Memory] Failed to insert session memory:', insertError.message);

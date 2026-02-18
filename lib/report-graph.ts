@@ -108,7 +108,7 @@ async function evaluateResponse(
         scores: evalResult.scores,
         reasoning: evalResult.reasoning,
         overall_score: evalResult.overall,
-      });
+      } as any);
     } catch (dbError: any) {
       console.error(`Failed to store eval for ${sectionName}:`, dbError.message);
     }

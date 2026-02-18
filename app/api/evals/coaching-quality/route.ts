@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
         scores: evalResult.scores,
         reasoning: evalResult.reasoning,
         overall_score: evalResult.overall,
-      });
+      } as any);
 
     if (dbError) {
       console.error('Failed to store eval in Supabase:', dbError);
