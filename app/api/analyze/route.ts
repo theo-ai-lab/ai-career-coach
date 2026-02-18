@@ -9,7 +9,7 @@ export async function POST(req: Request) {
   try {
     console.log('Starting analysis...');
     // Start with empty state - the agents will populate it
-    const result = await careerAgent.invoke({});
+    const result: any = await careerAgent.invoke({});
 
     if (!result || !result.finalReport) {
       throw new Error('No report generated from agent');
