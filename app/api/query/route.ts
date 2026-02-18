@@ -63,8 +63,8 @@ export async function POST(req: NextRequest) {
     // Get documents (we'll filter by resume_id after if provided)
     const { data: allDocs, error } = await supabase.rpc('match_documents', {
       query_embedding: queryEmbedding,
-      match_count: resumeId ? 20 : 6, // Get more if filtering to ensure we have enough after filter
-    });
+      match_count: resumeId ? 20 : 6,
+    } as any);
 
     // Debug logging
     console.log('[Query] Request received - resumeId:', resumeId, 'query:', query.substring(0, 50));

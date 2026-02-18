@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
       jobDescription: jobDescription?.trim() || undefined,
     };
 
-    const result = await reportGraph.invoke(initialState);
+    const result: any = await reportGraph.invoke(initialState);
 
     // Check for errors in result
     if (result.error) {
@@ -40,12 +40,11 @@ export async function POST(req: NextRequest) {
     }
 
     // Return the compiled report
-    const markdown = result.reportMarkdown as string | undefined;
-    if (!markdown) {
+    if (!result.reportMarkdown) {
       return new Response('Error: Report generation completed but no markdown was produced.', { status: 500 });
     }
 
-    return new Response(markdown, {
+    return new Response(result.reportMarkdown, {
       status: 200,
       headers: { 'Content-Type': 'text/markdown; charset=utf-8' },
     });

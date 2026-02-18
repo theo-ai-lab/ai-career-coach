@@ -714,6 +714,6 @@ graph.addEdge('planStrategy', 'buildReport');
 graph.addEdge('buildReport', END);
 
 // Compile the graph
-export const reportGraph = graph.compile();
+export const reportGraph: any = graph.compile();
 
 

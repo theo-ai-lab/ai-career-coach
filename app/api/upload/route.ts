@@ -97,7 +97,7 @@ export async function POST(req: NextRequest) {
 
       .from("documents")
 
-      .insert(documentsToInsert);
+      .insert(documentsToInsert as any);
 
     if (error) throw error;
 
