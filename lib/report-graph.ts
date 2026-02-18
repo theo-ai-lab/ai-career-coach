@@ -653,7 +653,7 @@ function shouldRunJobMatching(state: ReportState): string {
 /**
  * Build and compile the graph
  */
-const graph = new StateGraph<ReportState>({
+const graph: any = new StateGraph<ReportState>({
   channels: {
     resumeId: null,
     targetCompany: null,
