@@ -54,3 +54,6 @@ grok_chats/
 dev-error.log
 .next
 .next 2
+
+# project instructions for AI assistant — local only
+CLAUDE.md
