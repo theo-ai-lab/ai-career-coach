@@ -127,24 +127,58 @@ Three-layer architecture with different retention and retrieval patterns:
 
 ```
 app/
-├── page.tsx                    # Landing / onboarding
-├── chat/page.tsx               # Main chat interface
-├── upload/page.tsx             # PDF resume upload
-├── report/[session_id]/page.tsx # Generated career report
-├── admin/eval/page.tsx         # Evaluation dashboard (admin)
+├── page.tsx                              # main UI: chat, upload, agent buttons, report download
+├── layout.tsx                            # root layout
+├── providers.tsx                         # PostHog provider
+├── admin/
+│   └── evals/page.tsx                    # eval dashboard (LLM-as-judge scores)
 └── api/
-    ├── upload/route.ts         # PDF ingest → chunk → embed → store
-    ├── query/route.ts          # RAG retrieval → grounded generation
-    ├── agents/route.ts         # LangGraph execution endpoint
-    ├── eval/route.ts           # Async evaluation trigger
-    └── memory/route.ts         # Memory read/write operations
+    ├── upload/route.ts                   # PDF → chunk → embed → store
+    ├── query/route.ts                    # RAG retrieval → grounded generation (memory-aware)
+    ├── ingest/route.ts                   # generic document ingestion
+    ├── analyze/route.ts                  # legacy entry point (lib/agents.ts careerAgent)
+    ├── debug/route.ts                    # debug helper
+    ├── agents/
+    │   ├── resume/route.ts               # resume analyzer
+    │   ├── gap/route.ts                  # gap finder
+    │   ├── job-matcher/route.ts          # job matcher
+    │   ├── cover-letter/route.ts         # cover letter writer (HITL flag)
+    │   ├── interview-prep/route.ts       # interview prep
+    │   ├── strategy/route.ts             # 6-month strategy advisor (HITL flag)
+    │   └── report/route.ts               # full report (LangGraph orchestration)
+    ├── evals/
+    │   └── coaching-quality/route.ts     # standalone LLM-as-judge endpoint
+    └── admin/
+        └── evals/route.ts                # backing API for the eval dashboard
 
 components/
-├── chat/                       # ChatWindow, MessageBubble, SourceCitation
-├── upload/                     # ResumeUploader (drag-drop PDF)
-├── eval/                       # EvalDashboard, ScoreRadar, ResponseLog
-├── memory/                     # MemoryPanel ("what I know about you")
-└── hitl/                       # ApprovalModal (human review gate)
+├── HITLWarning.tsx                       # human review banner for high-stakes outputs
+└── ui/                                   # shadcn primitives (button, card, input, scroll-area)
+
+lib/
+├── rag.ts                                # resume context retrieval, chat client
+├── supabase.ts                           # Supabase client
+├── hitl-detection.ts                     # high-stakes keyword detection
+├── report-graph.ts                       # LangGraph StateGraph orchestration
+├── agents.ts                             # legacy careerAgent (used by /api/analyze)
+├── graph.ts                              # legacy state graph
+├── utils.ts                              # tailwind class merger
+├── agents/
+│   ├── resume-analyzer/                  # node.ts + schema.ts
+│   ├── gap-finder/                       # node.ts + schema.ts
+│   ├── job-matcher/                      # schema.ts (logic lives in report-graph.ts)
+│   ├── cover-letter/                     # node.ts + schema.ts
+│   ├── interview-prep/                   # node.ts + schema.ts
+│   ├── strategy-advisor/                 # node.ts + schema.ts
+│   ├── report-generator/                 # node.ts (delegates to synthesizer)
+│   └── synthesizer/                      # node.ts (aggregates per-agent outputs)
+├── evals/
+│   └── coaching-quality.ts               # LLM-as-judge rubric (4 dimensions)
+└── memory/
+    ├── index.ts                          # exports
+    ├── semantic.ts                       # user_profiles CRUD
+    ├── episodic.ts                       # session_memories + fire-and-forget summarizer
+    └── retrieval.ts                      # unified memory context formatter
 ```
 
 > **Note:** This repo contains the full system — multi-agent orchestration (`lib/report-graph.ts`, `lib/agents/`), evaluation framework (`lib/evals/coaching-quality.ts`), and memory layer (`lib/memory/`). The architectural patterns evolved through iteration documented in [docs/DECISION_LOG.md](docs/DECISION_LOG.md).
