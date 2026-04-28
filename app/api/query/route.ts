@@ -99,35 +99,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (!docs || docs.length === 0) {
-      console.log('[Query] No documents found after filtering. resumeId:', resumeId, 'allDocs count:', allDocs?.length || 0);
-      
-      // TEMPORARY: If filtering fails but we have docs, use them anyway (for debugging)
-      if (allDocs && allDocs.length > 0 && resumeId) {
-        console.log('[Query] FALLBACK: Using allDocs without filtering (debugging mode)');
-        const fallbackDocs = allDocs.slice(0, 6);
-        const context = fallbackDocs.map((d: any) => d.content).join('\n\n');
-        
-        // Continue with response generation using fallback docs
-        let systemPrompt = `You are an expert AI career coach helping candidates land their dream roles.
-
-Use ONLY the following context from the candidate's background:
-
-${context}
-
-Question: ${query}
-
-Answer concisely, professionally, and confidently. Never hallucinate.`;
-
-        const response = await llm.invoke(systemPrompt);
-        const answer = response.content.toString();
-        
-        return NextResponse.json({
-          answer,
-          sources: fallbackDocs.map((d: any) => ({ content: d.content, similarity: d.similarity })),
-          sessionId: currentSessionId,
-        });
-      }
-      
+      console.log('[Query] No documents found after resume_id filter. resumeId:', resumeId, 'allDocs count:', allDocs?.length || 0);
       return NextResponse.json({ answer: 'No relevant experience found.' });
     }
 
