@@ -6,9 +6,19 @@ Built as a solo project to solve a real problem: career advice is either generic
 
 **57+ users · 900+ queries processed · 0.97 grounding accuracy · 0.94 personalization score**
 
+*Metrics from PostHog event capture and Supabase analytics — production data not committed to repo.*
+
 [Live Demo](https://ai-career-coach-hazel.vercel.app) · [LinkedIn](https://linkedin.com/in/theobermudez) · [Architecture Doc](docs/ARCHITECTURE.md)
 
 ![App Screenshot](docs/screenshot.png)
+
+---
+
+## About this repo
+
+Built solo from November 2025 onward. Live deployment at the URL above. Three release cycles documented in git tags (v1.0, v2.0, v3.0). The eval framework, memory layer, and LangGraph orchestration are all in this public repo. Full architecture decisions in [docs/DECISION_LOG.md](docs/DECISION_LOG.md), evaluation methodology in [docs/EVAL_DESIGN.md](docs/EVAL_DESIGN.md).
+
+This is a working prototype with a real user base. Production analytics (user counts, query volume, eval scores) live in PostHog and Supabase — those data sources are not committed to the repo. There is no auth, rate limiting, or end-to-end outcome tracking yet — those are planned, not built.
 
 ---
 
@@ -49,45 +59,38 @@ Built as a solo project to solve a real problem: career advice is either generic
 
 ### RAG Pipeline (this repo)
 1. **Upload** — User uploads resume as PDF
-2. **Chunk** — `RecursiveCharacterTextSplitter` (800 chars, 200 overlap)
+2. **Chunk** — `RecursiveCharacterTextSplitter` (1000 chars, 200 overlap)
 3. **Embed** — `text-embedding-3-small` → 1536-dim vectors
 4. **Store** — Supabase pgvector with HNSW indexing
-5. **Retrieve** — Cosine similarity search via `match_documents` RPC (threshold: 0.78, top-5)
-6. **Generate** — `gpt-4o-mini` with strict grounding prompt (temperature: 0.3)
+5. **Retrieve** — Cosine similarity search via `match_documents` RPC (top-6 retrieval, post-filtered by `resume_id`)
+6. **Generate** — `gpt-4o-mini` with strict grounding prompt (temperature: 0.2)
 7. **Track** — PostHog analytics on every query and response
 
-### Multi-Agent Orchestration (private repo)
-The agent layer runs as a LangGraph `StateGraph` with a supervisor pattern:
+### Multi-Agent Orchestration
+The agent layer runs as a LangGraph `StateGraph` (see `lib/report-graph.ts`):
 
-| Agent | Purpose | Key Tools |
+| Agent | Purpose | Key Functions |
 |-------|---------|-----------|
-| **Supervisor** | Intent classification, routing, escalation detection | `intent_classifier`, `escalation_detector` |
-| **Resume Analyzer** | Parse resume, score against target roles, ATS check | `resume_parser`, `keyword_optimizer`, `ats_checker` |
-| **Job Matcher** | Find relevant postings, benchmark salary | `job_board_searcher`, `salary_benchmarker` |
-| **Gap Finder** | Identify skill gaps, estimate timelines, recommend resources | `skills_gap_analyzer`, `timeline_estimator` |
-| **Cover Letter Writer** | Generate grounded cover letters with citation tracking | `draft_generator`, `tone_optimizer` |
-| **Interview Prep** | Generate role-specific questions, evaluate mock answers | `question_generator`, `answer_evaluator` |
-| **Career Advisor** | Long-term strategy, pivot analysis, pattern detection | `career_trajectory_analyzer`, `reality_check_generator` |
-| **Report Compiler** | Aggregate all outputs into 30/60/90 action plan | `report_aggregator`, `pdf_generator` |
+| **Resume Analyzer** | Parse resume, extract strengths, projects, core skills | `analyzeResume`, `resumeAnalysisNode` |
+| **Job Matcher** | Match resume against job description, identify gaps and keywords | `jobMatchingNode` |
+| **Gap Finder** | Identify skill gaps, role fit score, recommendations | `findGaps`, `gapAnalysisNode` |
+| **Cover Letter Writer** | Generate grounded cover letters with citation tracking | `writeCoverLetter`, `coverLetterNode` |
+| **Interview Prep** | Generate behavioral, product, and technical questions with answers | `generateInterviewPrep`, `interviewPrepNode` |
+| **Strategy Advisor** | 6-month strategy plan with monthly breakdown | `generateStrategy`, `strategyPlanNode` |
+| **Report Compiler** | Aggregate all outputs into a final markdown report | `compileReportNode` |
 
-Routing uses conditional edges in the StateGraph based on classified intent. Cross-session state persists via Supabase checkpointing. High-stakes outputs (cover letters, career pivots) trigger `interrupt()` for human-in-the-loop approval.
+Routing uses one conditional edge: job-matching runs only when a job description is provided. The rest of the graph executes sequentially with parallel branches for interview prep + strategy plan. High-stakes outputs (cover letters, career pivots) trigger a UI-level human review gate via `lib/hitl-detection.ts` — the user is alerted before relying on the output.
 
-### Evaluation Framework (private repo)
-Every query-response pair runs through two async evaluation tracks:
+### Evaluation Framework
+Every query-response pair runs through an async LLM-as-judge evaluation (see `lib/evals/coaching-quality.ts`):
 
-**Track 1 — RAGAS (RAG quality)**
-- Faithfulness (≥ 0.85 threshold)
-- Answer relevancy (≥ 0.80)
-- Context precision (≥ 0.75)
-- Context recall (≥ 0.70)
-
-**Track 2 — LLM-as-judge (coaching quality)**
+**LLM-as-judge (coaching quality)**
 - Actionability — Is the advice executable within 48 hours?
 - Personalization — Is it tailored to this specific user's situation?
 - Honesty — Does it acknowledge limitations and uncertainty?
 - Grounding — Is every claim traceable to retrieved context?
 
-Composite score formula weights faithfulness (0.25), answer relevancy (0.20), actionability (0.20), personalization (0.15), honesty (0.10), grounding (0.10). Responses scoring below 0.65 get flagged for review.
+Composite score is the mean of 4 LLM-judge dimensions (actionability, personalization, honesty, grounding), scaled 0–100. Responses scoring below 75 surface a low-confidence warning in the UI.
 
 The evaluation methodology follows a **continuous calibration** approach: identify failure mode → trace through agent logs → adjust routing or prompt logic → re-run eval suite → measure delta.
 
@@ -98,7 +101,9 @@ Three-layer architecture with different retention and retrieval patterns:
 |-------|---------------|---------------|--------------|
 | **Semantic** | Career goals, skills, target roles, education | Extracted from onboarding, updated on new info | Injected into every agent call |
 | **Episodic** | Session summaries, decisions, action items, sentiment | Background job post-session (zero latency impact) | Last N summaries in system prompt |
-| **Procedural** | Coaching style preferences (direct vs. encouraging, data-heavy vs. narrative) | Inferred from engagement signals over time | Shapes all agent response generation |
+| **Procedural** | Coaching style preferences (direct vs. encouraging, data-heavy vs. narrative) | (planned — not yet implemented) | (planned — not yet implemented) |
+
+> Memory currently wires into `/api/query` (chat path). The report pipeline (`/api/agents/report`) does not yet pull memory context — planned for next iteration.
 
 ---
 
@@ -110,10 +115,9 @@ Three-layer architecture with different retention and retrieval patterns:
 | Vector DB | Supabase pgvector (PostgreSQL 15, HNSW indexing) |
 | Embeddings | OpenAI `text-embedding-3-small` (1536 dims) |
 | Generation | OpenAI `gpt-4o-mini` |
-| Agent orchestration | LangGraph `StateGraph` with conditional edges |
-| RAG evaluation | RAGAS (faithfulness, relevancy, precision, recall) |
-| LLM-as-judge | Custom `AspectCritic` (4 coaching quality dimensions) |
-| Memory | Supabase structured tables (semantic, episodic, procedural) |
+| Agent orchestration | LangGraph `StateGraph` with conditional + parallel edges |
+| LLM-as-judge | Custom 4-dimension rubric (actionability, personalization, honesty, grounding) |
+| Memory | Supabase structured tables (semantic, episodic; procedural planned) |
 | Analytics | PostHog |
 | Deployment | Vercel |
 
@@ -143,7 +147,7 @@ components/
 └── hitl/                       # ApprovalModal (human review gate)
 ```
 
-> **Note:** This repo contains the frontend application and RAG pipeline. The multi-agent orchestration layer, evaluation framework, and memory system live in a private repo — the eval methodology and agent routing logic contain proprietary patterns developed through consulting work with AI startups.
+> **Note:** This repo contains the full system — multi-agent orchestration (`lib/report-graph.ts`, `lib/agents/`), evaluation framework (`lib/evals/coaching-quality.ts`), and memory layer (`lib/memory/`). The architectural patterns evolved through iteration documented in [docs/DECISION_LOG.md](docs/DECISION_LOG.md).
 
 ---
 
@@ -178,13 +182,12 @@ Requires Supabase project with pgvector extension enabled and `match_documents` 
 | Decision | Rationale |
 |----------|-----------|
 | **LangGraph over CrewAI** | Needed fine-grained control over state transitions and conditional routing — CrewAI abstracts too much for production guardrails |
-| **Supervisor pattern over flat agents** | Single entry point enables consistent intent classification and escalation detection before routing |
 | **pgvector over Pinecone** | Co-located with application data in Supabase — eliminates network hop for joins between vector search and user profiles |
 | **HNSW over IVFFlat** | Better recall at query time for the dataset size; build time tradeoff is acceptable |
 | **Async eval (fire-and-forget)** | Zero latency impact on user experience — eval runs after response delivery |
 | **Three-layer memory** | Different information types need different retention policies and retrieval patterns |
-| **Temperature 0.3 for generation** | Prioritizes factual grounding over creative responses — career advice should be reliable, not novel |
-| **Human-in-the-loop on high-stakes** | Cover letters and career pivot advice carry real consequences — AI should propose, human should approve |
+| **Temperature 0.2 for generation** | Prioritizes factual grounding over creative responses — career advice should be reliable, not novel |
+| **UI-level human review on high-stakes** | Cover letters and career-pivot advice carry real consequences — `lib/hitl-detection.ts` flags the response and surfaces a review banner so the user reads with appropriate caution |
 
 ---
 
