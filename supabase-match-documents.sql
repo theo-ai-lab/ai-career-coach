@@ -70,6 +70,12 @@ GRANT EXECUTE ON FUNCTION match_documents_v2(vector, int, text, text) TO anon;
 GRANT EXECUTE ON FUNCTION match_documents_v2(vector, int, text, text) TO authenticated;
 
 
+-- Vector index for fast similarity search.
+-- HNSW chosen over IVFFlat for better recall at query time at our scale (<10k docs/user).
+-- See README "Decision Log" section and docs/DECISION_LOG.md for tradeoff rationale.
+CREATE INDEX IF NOT EXISTS documents_embedding_hnsw_idx
+  ON documents
+  USING hnsw (embedding vector_cosine_ops);
 
 
 

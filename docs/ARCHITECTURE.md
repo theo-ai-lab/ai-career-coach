@@ -361,7 +361,7 @@ Response Generated
 | `created_at` | TIMESTAMPTZ | Timestamp |
 
 **Indexes:**
-- Vector index: `ivfflat (embedding vector_cosine_ops)` for similarity search
+- Vector index: `hnsw (embedding vector_cosine_ops)` for similarity search
 - Metadata index: On `metadata->>'resume_id'` for filtering
 
 **RLS Policies:**
@@ -501,7 +501,7 @@ Response Generated
 | **Report generation** | <60s | ~30-45s | Sequential generation of 5-6 sections |
 | **Memory retrieval** | <500ms | ~200ms | Non-blocking, doesn't affect latency |
 | **Session summarization** | N/A | Background | Fire-and-forget, zero user impact |
-| **Vector search** | <200ms | ~100-150ms | pgvector with ivfflat index |
+| **Vector search** | <200ms | ~100-150ms | pgvector with HNSW index |
 
 **Optimization Strategies:**
 - Non-blocking operations (memory, evaluation, summarization)
