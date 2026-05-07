@@ -135,7 +135,6 @@ app/
     ├── upload/route.ts                   # PDF → chunk → embed → store
     ├── query/route.ts                    # RAG retrieval → grounded generation (memory-aware)
     ├── ingest/route.ts                   # generic document ingestion
-    ├── analyze/route.ts                  # legacy entry point (lib/agents.ts careerAgent)
     ├── debug/route.ts                    # debug helper
     ├── agents/
     │   ├── resume/route.ts               # resume analyzer
@@ -159,8 +158,6 @@ lib/
 ├── supabase.ts                           # Supabase client
 ├── hitl-detection.ts                     # high-stakes keyword detection
 ├── report-graph.ts                       # LangGraph StateGraph orchestration
-├── agents.ts                             # legacy careerAgent (used by /api/analyze)
-├── graph.ts                              # legacy state graph
 ├── utils.ts                              # tailwind class merger
 ├── agents/
 │   ├── resume-analyzer/                  # node.ts + schema.ts

@@ -2,22 +2,14 @@
 
 import { ResumeAnalysisSchema } from "./schema";
 
-import { SupabaseVectorStore } from "@langchain/community/vectorstores/supabase";
-
 import { OpenAIEmbeddings } from "@langchain/openai";
 
 import { ChatOpenAI } from "@langchain/openai";
 
 import { getSupabase } from "@/lib/supabase";
 
-function getVectorStore() {
-  const embeddings = new OpenAIEmbeddings({ model: "text-embedding-3-small" });
-  const supabase = getSupabase();
-  return new SupabaseVectorStore(embeddings, {
-    client: supabase,
-    tableName: "documents",
-    queryName: "match_documents",
-  });
+function getEmbeddings() {
+  return new OpenAIEmbeddings({ model: "text-embedding-3-small" });
 }
 
 function getLLM() {
@@ -25,20 +17,24 @@ function getLLM() {
 }
 
 export async function analyzeResume(userId: string, resumeText: string) {
-  const vectorstore = getVectorStore();
+  const supabase = getSupabase();
+  const embeddings = getEmbeddings();
   const llm = getLLM();
 
-  const retriever = vectorstore.asRetriever({
+  const queryEmbedding = await embeddings.embedQuery(resumeText);
 
-    filter: { user_id: userId },
+  const { data, error } = await supabase.rpc('match_documents_v2', {
+    query_embedding: queryEmbedding,
+    match_count: 20,
+    p_resume_id: null,
+    p_user_id: userId,
+  } as any);
 
-    k: 20,
+  if (error) {
+    throw new Error(`Failed to retrieve documents: ${error.message}`);
+  }
 
-  });
-
-
-
-  const context = await retriever.invoke(resumeText);
+  const docs = (data as any[] | null) ?? [];
 
 
 
@@ -50,7 +46,7 @@ CONTEXT FROM RESUME (free-text upload):
 ${resumeText}
 
 CONTEXT FROM RAG (retrieved_chunks):
-${context.map(c => c.pageContent).join("\n\n")}
+${docs.map((d: any) => d.content).join("\n\n")}
 
 SKILL & EDUCATION EXTRACTION RULES (CRITICAL):
 - You MUST extract **all skills** listed anywhere in the resume's explicit "Skills" section and include them verbatim in the appropriate arrays under skills. Do not paraphrase or drop items.

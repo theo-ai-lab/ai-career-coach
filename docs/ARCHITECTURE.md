@@ -51,7 +51,6 @@ AI Career Coach is a RAG-powered career coaching application that provides perso
 │  │ POST /api/upload    - PDF parsing, chunking, embedding        │   │
 │  │ POST /api/query     - RAG retrieval + generation + memory     │   │
 │  │ POST /api/ingest    - Alternative ingestion (legacy)          │   │
-│  │ POST /api/analyze   - Full agent graph (legacy)               │   │
 │  └──────────────────────────────────────────────────────────────┘   │
 │  ┌──────────────────────────────────────────────────────────────┐   │
 │  │ Agent Routes (7 specialized agents)                           │   │
