@@ -48,24 +48,20 @@ export async function getResumeContextById(
   const queryText = 'full resume overview';
   const queryEmbedding = await embeddings.embedQuery(queryText);
 
-  // Get documents using match_documents RPC
-  const { data, error } = await supabase.rpc('match_documents', {
+  const { data, error } = await supabase.rpc('match_documents_v2', {
     query_embedding: queryEmbedding,
-    match_count: resumeId ? 30 : maxChunks, // Get more if filtering to ensure we have enough after filter
+    match_count: maxChunks,
+    p_resume_id: resumeId || null,
+    p_user_id: null,
   } as any);
-
-  const allDocs = data as any[] | null;
 
   if (error) {
     throw new Error(`Failed to retrieve documents: ${error.message}`);
   }
 
-  // Filter by resume_id in metadata if provided
-  const docs = resumeId && allDocs
-    ? allDocs.filter((doc: any) => doc.metadata?.resume_id === resumeId).slice(0, maxChunks)
-    : allDocs?.slice(0, maxChunks) || [];
+  const docs = (data as any[] | null) ?? [];
 
-  if (!docs || docs.length === 0) {
+  if (docs.length === 0) {
     throw new Error(`No documents found for resumeId: ${resumeId}`);
   }
 

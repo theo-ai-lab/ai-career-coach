@@ -31,8 +31,43 @@ GRANT EXECUTE ON FUNCTION match_documents(vector, int) TO anon;
 GRANT EXECUTE ON FUNCTION match_documents(vector, int) TO authenticated;
 
 
+-- match_documents_v2: SQL-level scoping by resume_id and/or user_id.
+-- Required by /api/query and lib/rag.ts as of 2026-05-04. The original
+-- match_documents() above is retained for backward compatibility with
+-- callers (e.g. the report graph) that have not yet been migrated.
 
+CREATE OR REPLACE FUNCTION match_documents_v2(
+  query_embedding vector(1536),
+  match_count int DEFAULT 10,
+  p_resume_id text DEFAULT NULL,
+  p_user_id   text DEFAULT NULL
+)
+RETURNS TABLE (
+  id bigint,
+  content text,
+  metadata jsonb,
+  similarity float
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  RETURN QUERY
+  SELECT
+    documents.id,
+    documents.content,
+    documents.metadata,
+    1 - (documents.embedding <=> query_embedding) AS similarity
+  FROM documents
+  WHERE
+    (p_resume_id IS NULL OR documents.metadata->>'resume_id' = p_resume_id)
+    AND (p_user_id IS NULL OR documents.metadata->>'user_id' = p_user_id)
+  ORDER BY documents.embedding <=> query_embedding
+  LIMIT match_count;
+END;
+$$;
 
+GRANT EXECUTE ON FUNCTION match_documents_v2(vector, int, text, text) TO anon;
+GRANT EXECUTE ON FUNCTION match_documents_v2(vector, int, text, text) TO authenticated;
 
 
 

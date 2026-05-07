@@ -41,15 +41,20 @@ export async function POST(req: NextRequest) {
   try {
     const { query, resumeId, sessionId, messages } = await req.json();
 
+    if (!resumeId || typeof resumeId !== 'string') {
+      return NextResponse.json(
+        { error: 'resumeId required' },
+        { status: 400 }
+      );
+    }
+
     const supabase = getSupabaseClient();
     const embeddings = getEmbeddings();
     const llm = getLLM();
 
-    // Use resumeId as userId for memory system
-    const userId = resumeId || 'anonymous';
+    const userId = resumeId;
     const currentSessionId = sessionId || randomUUID();
 
-    // Retrieve memory context (non-blocking, returns empty if fails)
     let memoryContext;
     try {
       memoryContext = await getMemoryContext(userId);
@@ -60,50 +65,24 @@ export async function POST(req: NextRequest) {
 
     const queryEmbedding = await embeddings.embedQuery(query);
 
-    // Get documents (we'll filter by resume_id after if provided)
-    const { data: allDocs, error } = await supabase.rpc('match_documents', {
+    const { data, error } = await supabase.rpc('match_documents_v2', {
       query_embedding: queryEmbedding,
-      match_count: resumeId ? 20 : 6,
+      match_count: 6,
+      p_resume_id: resumeId,
+      p_user_id: null,
     } as any);
-
-    // Debug logging
-    console.log('[Query] Request received - resumeId:', resumeId, 'query:', query.substring(0, 50));
-    if (resumeId) {
-      console.log('[Query] resumeId provided:', resumeId);
-      console.log('[Query] allDocs count:', allDocs?.length || 0);
-      if (allDocs && allDocs.length > 0) {
-        console.log('[Query] Sample doc metadata:', JSON.stringify(allDocs[0].metadata, null, 2));
-        console.log('[Query] Sample doc resume_id:', allDocs[0].metadata?.resume_id);
-      } else {
-        console.log('[Query] WARNING: No documents returned from match_documents RPC');
-      }
-    } else {
-      console.log('[Query] WARNING: No resumeId provided in request');
-    }
-
-    // Filter by resume_id in metadata if provided
-    const docs = resumeId && allDocs 
-      ? allDocs.filter((doc: any) => {
-          const docResumeId = doc.metadata?.resume_id;
-          const matches = docResumeId === resumeId;
-          if (!matches && docResumeId) {
-            console.log(`[Query] Mismatch - doc resume_id: "${docResumeId}" vs query resumeId: "${resumeId}"`);
-          }
-          return matches;
-        }).slice(0, 6)
-      : allDocs;
 
     if (error) {
       console.error('[Query] RPC error:', error);
       return NextResponse.json({ answer: 'No relevant experience found.' });
     }
 
-    if (!docs || docs.length === 0) {
-      console.log('[Query] No documents found after resume_id filter. resumeId:', resumeId, 'allDocs count:', allDocs?.length || 0);
+    const docs = (data as any[] | null) ?? [];
+
+    if (docs.length === 0) {
+      console.log('[Query] No documents found for resumeId:', resumeId);
       return NextResponse.json({ answer: 'No relevant experience found.' });
     }
-
-    console.log('[Query] Found', docs.length, 'documents after filtering');
 
     const context = docs.map((d: any) => d.content).join('\n\n');
 
