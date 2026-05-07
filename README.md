@@ -7,7 +7,7 @@ Built as a solo project to solve a real problem: career advice is either generic
 **57+ users · 900+ queries processed · 0.97 grounding accuracy · 0.94 personalization score**
 
 
-[Live Demo](https://ai-career-coach-hazel.vercel.app) · [LinkedIn](https://linkedin.com/in/theobermudez) · [Architecture Doc](docs/ARCHITECTURE.md)
+[LinkedIn](https://linkedin.com/in/theobermudez) · [Architecture](docs/ARCHITECTURE.md) · [Decision Log](docs/DECISION_LOG.md) · [Eval Framework](docs/EVAL_DESIGN.md)
 
 ![App Screenshot](docs/screenshot.png)
 
