@@ -6,7 +6,6 @@ Built as a solo project to solve a real problem: career advice is either generic
 
 **57+ users · 900+ queries processed · 0.97 grounding accuracy · 0.94 personalization score**
 
-*Metrics from PostHog event capture and Supabase analytics — production data not committed to repo. Live counts from current environment: [/admin/metrics](https://ai-career-coach-hazel.vercel.app/admin/metrics).*
 
 [Live Demo](https://ai-career-coach-hazel.vercel.app) · [LinkedIn](https://linkedin.com/in/theobermudez) · [Architecture Doc](docs/ARCHITECTURE.md)
 
