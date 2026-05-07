@@ -46,6 +46,8 @@ export default function Home() {
 
   );
 
+  const [resumeFileName, setResumeFileName] = useState<string | null>(null);
+
   const sendMessage = async () => {
 
     if (!input.trim() || loading) return;
@@ -118,7 +120,7 @@ export default function Home() {
 
     <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 flex items-center justify-center p-4">
 
-      <Card className="w-full max-w-2xl h-[80vh] flex flex-col bg-white/95 shadow-2xl">
+      <Card className="w-full max-w-2xl min-h-[60vh] max-h-[85vh] flex flex-col bg-white/95 shadow-2xl">
 
         <div className="p-6 border-b">
 
@@ -142,7 +144,7 @@ export default function Home() {
 
               <p className="italic">"What technical experience do I have with RAG?"</p>
 
-              <p className="italic">"Which companies am I targeting?"</p>
+              <p className="italic">"Walk me through my AI projects."</p>
 
             </div>
 
@@ -181,40 +183,55 @@ export default function Home() {
 
 
         <div className="p-4 border-t">
-          <input
-            type="file"
-            accept=".pdf"
-            onChange={async (e) => {
-              const file = e.target.files?.[0];
-              if (!file) return;
-              
-              const formData = new FormData();
-              formData.append('file', file);
-              formData.append('userId', 'test-user'); // Required by /api/upload
-              
-              try {
-                const res = await fetch('/api/upload', { method: 'POST', body: formData });
-                if (!res.ok) {
-                  const text = await res.text();
-                  alert('Upload failed: ' + text);
-                  return;
-                }
-                const data = await res.json();
-                if (data.success) {
-                  if (data.resumeId) {
-                    localStorage.setItem('currentResumeId', data.resumeId);
-                    setCurrentResumeId(data.resumeId);
+          <label
+            htmlFor="resume-upload"
+            className="group flex items-center justify-between gap-3 px-4 py-3 rounded-md border border-slate-200 hover:border-slate-300 hover:bg-slate-50 cursor-pointer transition-colors focus-within:outline-none focus-within:ring-2 focus-within:ring-blue-500/40 focus-within:ring-offset-1"
+          >
+            <span className="text-sm text-slate-700 truncate">
+              {resumeFileName ?? 'Upload resume PDF'}
+            </span>
+            {resumeFileName && (
+              <span className="text-xs text-slate-400 group-hover:text-slate-600 transition-colors shrink-0">
+                Replace
+              </span>
+            )}
+            <input
+              id="resume-upload"
+              type="file"
+              accept=".pdf"
+              className="sr-only"
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('userId', 'test-user');
+
+                try {
+                  const res = await fetch('/api/upload', { method: 'POST', body: formData });
+                  if (!res.ok) {
+                    const text = await res.text();
+                    alert('Upload failed: ' + text);
+                    return;
                   }
-                  alert(`✅ Resume uploaded successfully! ${data.chunks} chunks ingested.`);
-                } else {
-                  alert('Error: ' + (data.error || 'Unknown error'));
+                  const data = await res.json();
+                  if (data.success) {
+                    if (data.resumeId) {
+                      localStorage.setItem('currentResumeId', data.resumeId);
+                      setCurrentResumeId(data.resumeId);
+                      setResumeFileName(file.name);
+                    }
+                    alert(`Resume uploaded. ${data.chunks} chunks ingested.`);
+                  } else {
+                    alert('Error: ' + (data.error || 'Unknown error'));
+                  }
+                } catch (err: any) {
+                  alert('Upload failed: ' + (err?.message ?? 'Unknown error'));
                 }
-              } catch (err: any) {
-                alert('Upload failed: ' + (err?.message ?? 'Unknown error'));
-              }
-            }}
-            className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700"
-          />
+              }}
+            />
+          </label>
         </div>
 
         <div className="p-4 border-t flex flex-col gap-2">
