@@ -186,7 +186,7 @@ The 4-criterion system documented above, with:
 
 ### LLM-as-Judge Approach
 
-The evaluation uses GPT-4o-mini as a judge model, prompted with the rubrics above. 
+The evaluation uses GPT-4o-mini as a judge model at temperature 0 for reproducible scoring across runs, prompted with the rubrics above. 
 
 **Why LLM-as-judge vs. heuristics?**
 - Heuristics (keyword matching, length checks) are gameable and miss nuance
@@ -196,7 +196,7 @@ The evaluation uses GPT-4o-mini as a judge model, prompted with the rubrics abov
 **Known limitations:**
 - Judge model has its own biases (tends toward middle scores)
 - Can't verify factual accuracy, only citation presence
-- Rubric interpretation varies slightly across runs
+- Rubric interpretation may vary across model versions or prompt revisions (within a fixed rubric and model, scoring is reproducible at temperature 0)
 
 **Mitigation:**
 - Detailed rubrics reduce interpretation variance

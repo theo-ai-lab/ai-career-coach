@@ -444,6 +444,60 @@ This document captures key technical and product decisions made throughout devel
 
 ---
 
+## Decision 14: LLM-as-Judge Temperature
+
+**Date:** May 2026
+
+**Status:** Decided
+
+**Context:** The eval rubric in `lib/evals/coaching-quality.ts` was using `getChatClient()` (the same factory as response generation), which sets `temperature: 0.2`. A judge running at non-zero temperature scores the same response differently across runs — score deltas become noise rather than signal.
+
+**Options Considered:**
+
+| Option | Pros | Cons |
+|--------|------|------|
+| Reuse `getChatClient()` (status quo) | Single client to maintain | Non-reproducible scoring; deltas mix model variance with rubric/code changes |
+| Add `getJudgeClient()` at temp 0 | Reproducible scoring; clean separation | Two factories to maintain |
+| Switch entire codebase to temp 0 | Maximum determinism | Generation responses become repetitive; loses calibrated diversity |
+
+**Decision:** Add `getJudgeClient()` at temperature 0 alongside existing `getChatClient()` at temperature 0.2.
+
+**Rationale:**
+- Generation benefits from low non-zero temperature (slight variation reads as more natural)
+- Judging requires reproducibility — same input must score the same output across runs
+- Score deltas across runs are now signal (rubric changed) rather than noise (model variance)
+
+**Implementation:** Commit `c0fdd91`. Two-function factory in `lib/rag.ts`. `evaluateCoachingQuality` switched to `getJudgeClient()`.
+
+---
+
+## Decision 15: Track CREATE TABLE documents in Repo
+
+**Date:** May 2026
+
+**Status:** Decided
+
+**Context:** `supabase-match-documents.sql` defines RPC functions assuming the `documents` table exists, but the `CREATE TABLE` statement was never tracked. The table was created via Supabase UI during initial setup. Anyone cloning the repo and running the SQL files in order hit "relation does not exist" errors. Reproducibility was broken.
+
+**Options Considered:**
+
+| Option | Pros | Cons |
+|--------|------|------|
+| Leave as-is, document the UI step | Minimum file count | Manual UI clicks before SQL runs; can't be scripted |
+| Add CREATE TABLE block inside `supabase-match-documents.sql` | Single file to run | Mixes table DDL with RPC definitions; ownership unclear |
+| New file `supabase-documents.sql` | Clean ownership; clear load order | One more file in the load sequence |
+
+**Decision:** New file `supabase-documents.sql` (canonical home for the table + extension + indexes). HNSW index moved here from `supabase-match-documents.sql`. Header comment added to `supabase-match-documents.sql` noting the load-order dependency.
+
+**Rationale:**
+- Clean ownership: table and its indexes live in one file
+- Reproducibility: clone → run files in documented order → app works
+- Standalone-safe: enables RLS + permissive default policies that `supabase-fix.sql` later refines
+
+**Implementation:** Commit `fc3c086`. New file `supabase-documents.sql` (CREATE EXTENSION vector, CREATE TABLE documents, HNSW + GIN indexes, ALTER TABLE ENABLE RLS, basic anon policies).
+
+---
+
 ## Decisions Pending
 
 | Topic | Status | Blocking | Notes |
@@ -473,8 +527,8 @@ Throughout development, we've followed these principles:
 
 ---
 
-*Last updated: December 2024*  
-*Next review: January 2025*
+*Last updated: May 2026*  
+*Next review: June 2026*
 
 
 

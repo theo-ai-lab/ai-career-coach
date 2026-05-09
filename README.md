@@ -15,9 +15,11 @@ Built as a solo project to solve a real problem: career advice is either generic
 
 ## About this repo
 
-Built solo from November 2025 onward. Live deployment at the URL above. Three release cycles documented in git tags (v1.0, v2.0, v3.0). The eval framework, memory layer, and LangGraph orchestration are all in this public repo. Full architecture decisions in [docs/DECISION_LOG.md](docs/DECISION_LOG.md), evaluation methodology in [docs/EVAL_DESIGN.md](docs/EVAL_DESIGN.md).
+Built solo over 5+ months (54+ commits, November 2025 → May 2026). Live deployment at the URL above. Three release cycles documented in git tags (v1.0, v2.0, v3.0). The eval framework, memory layer, and LangGraph orchestration are all in this public repo. Full architecture decisions in [docs/DECISION_LOG.md](docs/DECISION_LOG.md), evaluation methodology in [docs/EVAL_DESIGN.md](docs/EVAL_DESIGN.md).
 
 This is a working prototype with a real user base. Production analytics (user counts, query volume, eval scores) live in PostHog and Supabase — those data sources are not committed to the repo. There is no auth, rate limiting, or end-to-end outcome tracking yet — those are planned, not built.
+
+Personal process rules live in `/` — postmortem template, peer-review checklist, learning-opportunity capture, plan/execute/document workflow notes. They shape how the project gets iterated, not what it does.
 
 ---
 
@@ -203,7 +205,7 @@ NEXT_PUBLIC_POSTHOG_HOST=https://us.i.posthog.com
 npm run dev
 ```
 
-Requires Supabase project with pgvector extension enabled. SQL setup files at repo root: `supabase-match-documents.sql` (RPC functions + HNSW index), `supabase-memory.sql` (user profiles + session memory), `supabase-evals.sql` (eval logging), `supabase-fix.sql` (RLS policies).
+Requires Supabase project with pgvector extension enabled. SQL setup files at repo root, run in this order: `supabase-documents.sql` (documents table + pgvector extension + HNSW index), `supabase-match-documents.sql` (RPC functions for vector search), `supabase-memory.sql` (user profiles + session memory), `supabase-evals.sql` (eval logging), `supabase-fix.sql` (RLS policies).
 
 ---
 
@@ -223,8 +225,8 @@ Requires Supabase project with pgvector extension enabled. SQL setup files at re
 
 ## Methodology
 
-**Continuous Calibration / Continuous Development (CC/CD):**
-Adapted from the scientific method for prompt optimization. Each iteration cycle:
+Iterative prompt optimization, run as a standard scientific loop. Each cycle:
+
 1. Identify failure mode through eval scores and agent trace logs
 2. Form hypothesis about root cause (routing error vs. prompt gap vs. retrieval miss)
 3. Adjust the specific component (prompt, routing logic, retrieval threshold)
