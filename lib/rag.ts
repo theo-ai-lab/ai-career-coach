@@ -81,3 +81,14 @@ export function getChatClient(): ChatOpenAI {
   });
 }
 
+/**
+ * Returns a ChatOpenAI client tuned for LLM-as-judge usage:
+ * temperature 0 for reproducible scoring across runs.
+ */
+export function getJudgeClient(): ChatOpenAI {
+  return new ChatOpenAI({
+    model: 'gpt-4o-mini',
+    temperature: 0,
+  });
+}
+

@@ -2,7 +2,7 @@
 // LLM-as-judge evaluator for coaching quality
 
 import { ChatOpenAI } from '@langchain/openai';
-import { getChatClient } from '@/lib/rag';
+import { getJudgeClient } from '@/lib/rag';
 
 export interface CoachingQualityInput {
   query: string;
@@ -34,7 +34,7 @@ export interface CoachingQualityOutput {
 export async function evaluateCoachingQuality(
   input: CoachingQualityInput
 ): Promise<CoachingQualityOutput> {
-  const llm = getChatClient();
+  const llm = getJudgeClient();
   
   const contextsText = input.contexts.length > 0
     ? input.contexts.map((ctx, i) => `[Context ${i + 1}]\n${ctx}`).join('\n\n')
