@@ -1,3 +1,6 @@
+-- Run supabase-documents.sql FIRST. This file assumes the documents table exists
+-- with columns (id bigint, content text, embedding vector(1536), metadata jsonb).
+
 -- Create the match_documents RPC function for vector similarity search
 -- This function returns documents with metadata for filtering by resume_id
 
@@ -69,13 +72,7 @@ $$;
 GRANT EXECUTE ON FUNCTION match_documents_v2(vector, int, text, text) TO anon;
 GRANT EXECUTE ON FUNCTION match_documents_v2(vector, int, text, text) TO authenticated;
 
-
--- Vector index for fast similarity search.
--- HNSW chosen over IVFFlat for better recall at query time at our scale (<10k docs/user).
--- See README "Decision Log" section and docs/DECISION_LOG.md for tradeoff rationale.
-CREATE INDEX IF NOT EXISTS documents_embedding_hnsw_idx
-  ON documents
-  USING hnsw (embedding vector_cosine_ops);
+-- HNSW index for embedding lives in supabase-documents.sql (canonical).
 
 
 
