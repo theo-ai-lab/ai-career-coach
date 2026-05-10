@@ -1,0 +1,282 @@
+/**
+ * Synthetic eval benchmark runner.
+ *
+ * SMOKE MODE ONLY (current scaffold).
+ *
+ * Pure CJS + native fetch. No tsx, no @langchain/openai, no openai SDK.
+ * Background: @langchain/openai under tsx and the openai v6.10.0 SDK both
+ * hang on module load in this Node 24.11.1 environment. fetch is built-in
+ * and avoids both. Production runner (v2) will revisit SDK choice.
+ *
+ * What smoke validates:
+ *   - Persona JSON loading from data/eval-benchmark/personas/
+ *   - Case JSON loading from data/eval-benchmark/cases/normal/
+ *   - Generation flow (resume context + query -> response)
+ *   - Judge flow (response + contexts -> rubric scores)
+ *   - Results file shape + write to data/eval-benchmark/results/
+ *
+ * Caveats vs production methodology (data/eval-benchmark/README.md):
+ *   - Single-call judge returning all 4 scores. Production calls for per-dimension
+ *     isolated judges per Anthropic guidance. v2 will migrate.
+ *   - 1-5 scoring (matches existing lib/evals/coaching-quality.ts). Production
+ *     migrates to 0-5 with "Unknown" option in v2.
+ *   - Direct OpenAI HTTPS via fetch (bypasses langchain TLA hang + openai SDK
+ *     v6 module-load hang). Production will use OpenRouter for cross-model.
+ *   - No council validation, no Krippendorff alpha, no bootstrap CIs, no position
+ *     bias check. Smoke validates pipeline only.
+ *
+ * NOT YET IMPLEMENTED (will return error):
+ *   --dry-run        validate env, list what would run, no API calls
+ *   --max-cost-usd   cost kill-switch
+ *   --experiment     run a single experiment (cross-model | embedding | council)
+ *
+ * Run:
+ *   node scripts/run-eval-benchmark.cjs --smoke
+ */
+
+const { readFile, readdir, writeFile, mkdir } = require('fs/promises');
+const { join, resolve } = require('path');
+
+require('dotenv').config({ path: resolve(__dirname, '..', '.env.local') });
+
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+if (!OPENAI_API_KEY) {
+  console.error('FATAL: OPENAI_API_KEY missing from .env.local');
+  process.exit(1);
+}
+
+const args = process.argv.slice(2);
+if (!args.includes('--smoke')) {
+  console.error('Smoke-only scaffold. Pass --smoke to run.');
+  console.error('--dry-run, --max-cost-usd, --experiment are stubs; v2 will implement them.');
+  process.exit(1);
+}
+
+const ROOT = resolve(__dirname, '..');
+const BENCHMARK_DIR = resolve(ROOT, 'data/eval-benchmark');
+const PERSONAS_DIR = join(BENCHMARK_DIR, 'personas');
+const CASES_DIR = join(BENCHMARK_DIR, 'cases', 'normal');
+const RESULTS_DIR = join(BENCHMARK_DIR, 'results');
+
+const GEN_MODEL = 'gpt-4o-mini';
+const GEN_TEMP = 0.2;
+const JUDGE_MODEL = 'gpt-4o-mini';
+const JUDGE_TEMP = 0;
+
+async function chatCompletion({ model, temperature, messages }) {
+  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${OPENAI_API_KEY}`,
+    },
+    body: JSON.stringify({ model, temperature, messages }),
+  });
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`OpenAI ${res.status}: ${errText.slice(0, 500)}`);
+  }
+  const json = await res.json();
+  return json.choices[0].message.content ?? '';
+}
+
+async function loadJson(path) {
+  const content = await readFile(path, 'utf-8');
+  return JSON.parse(content);
+}
+
+async function loadAllPersonas() {
+  const files = (await readdir(PERSONAS_DIR)).filter((f) => f.endsWith('.json')).sort();
+  return Promise.all(files.map((f) => loadJson(join(PERSONAS_DIR, f))));
+}
+
+async function loadAllCases() {
+  const files = (await readdir(CASES_DIR)).filter((f) => f.endsWith('.json')).sort();
+  return Promise.all(files.map((f) => loadJson(join(CASES_DIR, f))));
+}
+
+async function generateResponse(persona, query) {
+  return chatCompletion({
+    model: GEN_MODEL,
+    temperature: GEN_TEMP,
+    messages: [
+      {
+        role: 'system',
+        content: `You are an expert AI career coach. Use ONLY the following resume context to answer:\n\n${persona.resume_text}\n\nAnswer concisely, professionally, and confidently. Never hallucinate. Ground every claim in the resume.`,
+      },
+      { role: 'user', content: query },
+    ],
+  });
+}
+
+async function judgeResponse(query, response, contexts) {
+  const contextsText = contexts.map((c, i) => `[Context ${i + 1}]\n${c}`).join('\n\n');
+  const prompt = `You are an expert evaluator of AI coaching responses. Evaluate the following coaching response on 4 criteria, each scored 1-5.
+
+USER QUERY:
+${query}
+
+RETRIEVED CONTEXTS:
+${contextsText}
+
+COACHING RESPONSE TO EVALUATE:
+${response}
+
+EVALUATION CRITERIA:
+
+1. ACTIONABILITY (1-5): Can the user act on this advice within 48 hours?
+   - 5: Specific action + timeline + method
+   - 3: Action category without specifics
+   - 1: Pure platitude
+
+2. PERSONALIZATION (1-5): Is this specific to their resume, not generic advice?
+   - 5: References specific experiences/projects from contexts
+   - 3: Acknowledges field/level but semi-generic
+   - 1: Could apply to anyone
+
+3. HONESTY (1-5): Does it acknowledge uncertainty appropriately?
+   - 5: Clear confidence calibration where warranted
+   - 3: Doesn't overclaim but no explicit uncertainty
+   - 1: Definitive predictive claims about unknowable things
+
+4. GROUNDING (1-5): Is every claim about the user traceable to the context?
+   - 5: Every claim verifiable in context
+   - 3: Mostly grounded with minor reasonable extrapolation
+   - 1: Significant hallucination
+
+OUTPUT FORMAT:
+Return ONLY valid JSON, no markdown:
+{
+  "scores": {
+    "actionability": <1-5>,
+    "personalization": <1-5>,
+    "honesty": <1-5>,
+    "grounding": <1-5>
+  },
+  "reasoning": "<brief explanation, 2-3 sentences>",
+  "overall": <0-100, average of the 4 scores scaled to 0-100>
+}`;
+
+  const raw = await chatCompletion({
+    model: JUDGE_MODEL,
+    temperature: JUDGE_TEMP,
+    messages: [{ role: 'user', content: prompt }],
+  });
+
+  let cleaned = raw.trim();
+  if (cleaned.startsWith('```')) {
+    cleaned = cleaned.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '');
+  }
+  const match = cleaned.match(/\{[\s\S]*\}/);
+  if (!match) throw new Error(`No JSON in judge response: ${raw}`);
+
+  const result = JSON.parse(match[0]);
+
+  const avg =
+    (result.scores.actionability +
+      result.scores.personalization +
+      result.scores.honesty +
+      result.scores.grounding) /
+    4;
+  result.overall = Math.round((avg / 5) * 100);
+
+  return result;
+}
+
+async function main() {
+  console.log('SMOKE RUN STARTING');
+  console.log(`  Generation: ${GEN_MODEL} (temp ${GEN_TEMP})`);
+  console.log(`  Judge: ${JUDGE_MODEL} (temp ${JUDGE_TEMP})`);
+  console.log('  Mode: smoke (~$0.05-0.10, ~2 min)');
+  console.log('');
+
+  const personas = await loadAllPersonas();
+  const cases = await loadAllCases();
+  console.log(`Loaded ${personas.length} personas, ${cases.length} cases`);
+  console.log('');
+
+  const results = [];
+
+  for (const c of cases) {
+    const persona = personas.find((p) => p.id === c.persona_id);
+    if (!persona) {
+      console.error(`SKIP: no persona ${c.persona_id} found for case ${c.id}`);
+      continue;
+    }
+
+    console.log(`Case: ${c.id}`);
+    console.log(`  Persona: ${persona.id} (${persona.label})`);
+    console.log(`  Query: ${c.query.slice(0, 80)}...`);
+    console.log(`  Expected dimension focus: ${c.expected_dimension_focus}`);
+
+    const genStart = Date.now();
+    const response = await generateResponse(persona, c.query);
+    const genTimeS = (Date.now() - genStart) / 1000;
+    console.log(`  Response generated: ${genTimeS.toFixed(1)}s, ${response.length} chars`);
+
+    const judgeStart = Date.now();
+    const judgement = await judgeResponse(c.query, response, [persona.resume_text]);
+    const judgeTimeS = (Date.now() - judgeStart) / 1000;
+    console.log(`  Judged: ${judgeTimeS.toFixed(1)}s | overall ${judgement.overall}/100`);
+    console.log(`    actionability: ${judgement.scores.actionability}/5`);
+    console.log(`    personalization: ${judgement.scores.personalization}/5`);
+    console.log(`    honesty: ${judgement.scores.honesty}/5`);
+    console.log(`    grounding: ${judgement.scores.grounding}/5`);
+    console.log('');
+
+    results.push({
+      case_id: c.id,
+      persona_id: persona.id,
+      persona_label: persona.label,
+      query: c.query,
+      expected_dimension_focus: c.expected_dimension_focus,
+      response,
+      scores: judgement.scores,
+      overall: judgement.overall,
+      reasoning: judgement.reasoning,
+      gen_time_s: Number(genTimeS.toFixed(2)),
+      judge_time_s: Number(judgeTimeS.toFixed(2)),
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  const summary = {
+    run_metadata: {
+      mode: 'smoke',
+      date: new Date().toISOString().split('T')[0],
+      generation_model: GEN_MODEL,
+      generation_temperature: GEN_TEMP,
+      judge_model: JUDGE_MODEL,
+      judge_temperature: JUDGE_TEMP,
+      transport: 'native fetch (CJS, no SDK)',
+      total_personas_loaded: personas.length,
+      total_cases_run: results.length,
+      smoke_caveats: [
+        'Single-call judge returning all 4 scores. Production methodology requires per-dimension isolated judges per Anthropic eval guidance. v2.',
+        '1-5 scoring inherited from existing lib/evals/coaching-quality.ts. Production methodology migrates to 0-5 with "Unknown" option in v2.',
+        'Native fetch over HTTPS (bypasses @langchain/openai TLA hang and openai SDK v6 module-load hang on Node 24.11.1 / tsx 4.21). Production runner will use OpenRouter for cross-model comparison. v2.',
+        'No council validation, no Krippendorff alpha, no bootstrap CIs, no position bias check. Smoke validates pipeline only.',
+      ],
+    },
+    per_case_results: results,
+  };
+
+  await mkdir(RESULTS_DIR, { recursive: true });
+  const outPath = join(RESULTS_DIR, '2026-05-10-smoke.json');
+  await writeFile(outPath, JSON.stringify(summary, null, 2));
+
+  console.log('---');
+  console.log('SMOKE COMPLETE');
+  console.log(`  Results written: ${outPath}`);
+  console.log(`  Cases run: ${results.length}`);
+  if (results.length > 0) {
+    const avg = results.reduce((s, r) => s + r.overall, 0) / results.length;
+    console.log(`  Average overall: ${Math.round(avg)}/100`);
+  }
+}
+
+main().catch((e) => {
+  console.error('SMOKE FAILED:', e.message);
+  if (e.stack) console.error(e.stack);
+  process.exit(1);
+});

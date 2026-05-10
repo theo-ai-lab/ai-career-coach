@@ -1,0 +1,13 @@
+{
+  "id": "03",
+  "label": "Mid-career data analyst targeting Staff Data Scientist",
+  "axes": {
+    "career_stage": "mid_career_5_to_10",
+    "target_role": "Staff Data Scientist",
+    "background_origin": "Statistics undergrad",
+    "domain_depth": "marketplace + pricing",
+    "geographic_context": "Seattle, open to relocation",
+    "edge_case": null
+  },
+  "resume_text": "Jordan Park\njordan.park@gmail.com | linkedin.com/in/jordanpark | github.com/jpark-data\n\nSUMMARY\nSenior Data Analyst with 6 years of experience leading product analytics, A/B testing infrastructure, and data mentorship at consumer marketplaces. Seeking Staff or Principal Data Scientist role at a Series B+ company focused on pricing, marketplace dynamics, or growth experimentation.\n\nEDUCATION\nB.S. Statistics, University of Michigan (2014-2018)\nMinor: Computer Science | GPA 3.78\n\nEXPERIENCE\nSenior Data Analyst, Stripe (Sep 2021-present)\n- Lead analyst for Connect platform; partner with PM and Eng on pricing experiments and platform monetization\n- Designed A/B test framework adopted across 4 product teams; ~$2M attributed lift quarterly per internal causal-inference review\n- Reduced query latency on the merchant-insights dashboard from 14s p95 to 5s p95 via materialized views and dbt restructuring\n- Mentor 3 junior analysts; led weekly office hours that became the team's onboarding standard\n- Built bayesian sequential testing framework after the team got bit by 4 false positives from frequentist t-tests\n\nData Analyst, DoorDash (Jun 2019-Aug 2021)\n- Built dasher-supply forecasting model that became the basis for surge pricing in 12 markets\n- Owned weekly business review SQL + Python pipeline feeding executive dashboard\n- Collaborated with research scientists on pricing elasticity studies\n\nData Analyst, Capital One (Jul 2018-May 2019)\n- Credit risk modeling team; built propensity models for prime card upgrades\n- Cleared SR 11-7 model validation review on first submission\n\nPROJECTS\npricing-experiments-cookbook (private GitHub repo, shared with team) - Internal documentation site for pricing experiment design patterns at Stripe.\n\nSKILLS\nSQL (advanced, including window functions and recursive CTEs), Python (pandas, numpy, scikit-learn, scipy.stats), dbt, Looker, Mode, Snowflake, basic causal inference (CausalImpact, DoubleML), A/B testing infrastructure\n\nOTHER\nMember, ASA (American Statistical Association); occasional speaker at Seattle Data Council meetups; mentor in Lean In Tech program for women in data"
+}

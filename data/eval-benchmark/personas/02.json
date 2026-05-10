@@ -1,0 +1,13 @@
+{
+  "id": "02",
+  "label": "Bootcamp grad pivoting from teaching to early-stage startup PM",
+  "axes": {
+    "career_stage": "career_switcher",
+    "target_role": "Startup PM",
+    "background_origin": "non-CS undergrad + bootcamp",
+    "domain_depth": "ed-tech / healthcare interest",
+    "geographic_context": "Bay Area",
+    "edge_case": "career change after 6 years in another field"
+  },
+  "resume_text": "Maya Rodriguez\nmaya.rodriguez@gmail.com | linkedin.com/in/mayarodriguez | mayarodriguez.dev\n\nOBJECTIVE\nProduct Manager role at an early-stage startup (Series A or earlier), ideally in ed-tech, healthcare, or developer tools, where I can combine 6 years of classroom-tested communication skills with new technical fluency.\n\nEDUCATION\nGeneral Assembly Software Engineering Immersive (Mar-Sep 2024)\n- Full-stack JavaScript bootcamp; built 4 capstone projects including a React + Node SaaS dashboard\nB.A. Education, UC Berkeley (2018)\n- Phi Beta Kappa, GPA 3.91, Highest Honors in Education thesis\n\nEXPERIENCE\n6th Grade Math Teacher, Oakland Unified School District (2018-2024)\n- Designed differentiated curriculum serving 130 students per year across 4 sections\n- Improved end-of-year SBAC math scores from 47th to 68th percentile over 4 years\n- Led grade-level team of 8 teachers; ran weekly retros and professional development sessions\n- Managed conflict resolution across student, parent, and admin stakeholders weekly\n\nSoftware Engineering Intern, Tabby Health (Sep 2024 - Mar 2025)\n- Built patient-onboarding flow in React + Node, reduced drop-off from 38% to 14%\n- Wrote and shipped first integration tests, brought coverage from 0% to 41% in 4 months\n- Worked directly with founders on product decisions; sat in on every customer call\n- Drafted 6 bug-report templates that the support team still uses\n\nVolunteer Product Lead, Estamos Listos (ed-tech nonprofit, 2023-present)\n- Specced and shipped SMS-based homework reminder system for 200+ Spanish-speaking families in Oakland\n- Conducted 18 user interviews to validate the feature before any code was written\n- Wrote launch retro that's now the template for 2 other nonprofits using our platform\n\nSKILLS\nReact, TypeScript, Node, Postgres, basic Python; user research, instructional design, classroom management, bilingual (English/Spanish)\n\nOTHER\nCertified California Math Teacher (multi-subject + mathematics); active member, Latinas in Tech Bay Area chapter"
+}

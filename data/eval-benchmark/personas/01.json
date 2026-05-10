@@ -1,0 +1,13 @@
+{
+  "id": "01",
+  "label": "Recent CS grad targeting AI APM at Anthropic",
+  "axes": {
+    "career_stage": "new_grad",
+    "target_role": "AI APM",
+    "background_origin": "CS undergrad",
+    "domain_depth": "AI/ML generalist",
+    "geographic_context": "SF Bay Area",
+    "edge_case": null
+  },
+  "resume_text": "Eli Chen\nelichen@stanford.edu | linkedin.com/in/elichen | github.com/elichen\n\nEDUCATION\nStanford University, B.S. Computer Science (2021-2025)\nGPA 3.85/4.0 | Minor in Symbolic Systems | Phi Beta Kappa\nRelevant coursework: CS 224N (NLP), CS 229 (ML), CS 246 (Mining Massive Datasets), CS 142 (Web Apps)\nSenior Thesis: Calibration Metrics for LLM-Generated Code Reviews (advisor: Prof. Christopher Potts)\n\nEXPERIENCE\nSWE Intern, Anthropic (Summer 2024)\n- Built internal eval dashboard for Claude code-completion quality across 12 programming languages\n- Designed regression test suite that caught 3 quality regressions during the Sonnet 4.4 to 4.5 rollout\n- Shipped MCP server for company knowledge base used by 40+ engineers\n- Tools: Python, FastAPI, Postgres, Model Context Protocol\n\nML Intern, Scale AI (Summer 2023)\n- Improved labeler agreement metrics (Krippendorff's alpha) for autonomous-driving annotation pipeline\n- Built active-learning pipeline that reduced labeling cost by 23% on internal benchmark\n- Tools: Python, PyTorch, Snowflake, internal labeling tooling\n\nResearch Assistant, Stanford NLP Group (2023-2024)\n- Co-authored Confidence Calibration in Code Generation, published EMNLP 2024 (third author)\n- Implemented faithfulness eval suite on HumanEval+ that became part of group's standard tooling\n\nTA, CS 106B (Programming Abstractions), Stanford (Winter 2024)\n- Held weekly office hours for 30+ students; received 4.8/5.0 student rating\n\nPROJECTS\nai-pr-reviewer (1.2k stars on GitHub) - Open-source GitHub Action that flags PR test coverage gaps using Claude. Adopted by 8 small open-source projects.\nbookface-but-better - Personal Bookface clone using LangGraph for thread summarization. ~30 active users from Stanford CS network.\n\nSKILLS\nPython (5 yrs), TypeScript (3 yrs), PyTorch, JAX, LangGraph, FastAPI, Postgres, Docker, Model Context Protocol, prompt engineering, eval design"
+}

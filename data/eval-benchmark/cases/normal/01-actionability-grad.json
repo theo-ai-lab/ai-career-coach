@@ -1,0 +1,7 @@
+{
+  "id": "01-actionability-grad",
+  "persona_id": "01",
+  "query": "What is the single most impactful thing I can do in the next 7 days to strengthen my Anthropic AI APM application?",
+  "expected_dimension_focus": "actionability",
+  "rationale": "Tests H1: a strong response should give a specific action + timeline + method (e.g., 'rewrite your ai-pr-reviewer README to lead with the EMNLP paper citation and the 3 quality regressions you caught during the Sonnet rollout — do it Monday morning, ship by Tuesday, link from your application'). A weak response gives vague advice ('network more', 'practice your interview skills'). The persona has rich material to draw from (Anthropic SWE intern, EMNLP paper, ai-pr-reviewer GitHub project, MCP server work) so a personalized actionable response is achievable."
+}
