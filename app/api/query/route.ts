@@ -39,7 +39,7 @@ function getLLM() {
 
 export async function POST(req: NextRequest) {
   try {
-    const { query, resumeId, sessionId, messages } = await req.json();
+    const { query, resumeId, sessionId, messages, skipMemory } = await req.json();
 
     if (!resumeId || typeof resumeId !== 'string') {
       return NextResponse.json(
@@ -52,15 +52,25 @@ export async function POST(req: NextRequest) {
     const embeddings = getEmbeddings();
     const llm = getLLM();
 
+    // userId is currently aliased to resumeId, so the memory key is the
+    // resume rather than the user. For eval runs this means earlier prompts
+    // in the same script contaminate later prompts via the async session
+    // summarizer (red-team 2026-05-11 surfaced this: ec-01 referenced "the
+    // anxiety you mentioned" from cg-03 two prompts earlier). Callers can
+    // pass skipMemory: true to opt out of both loading and writing memory.
     const userId = resumeId;
     const currentSessionId = sessionId || randomUUID();
 
-    let memoryContext;
-    try {
-      memoryContext = await getMemoryContext(userId);
-    } catch (memoryError: any) {
-      console.warn('[Memory] Failed to retrieve memory context:', memoryError.message);
+    let memoryContext: { profile: any; recentSessions: any[]; formattedContext: string };
+    if (skipMemory) {
       memoryContext = { profile: null, recentSessions: [], formattedContext: '' };
+    } else {
+      try {
+        memoryContext = await getMemoryContext(userId);
+      } catch (memoryError: any) {
+        console.warn('[Memory] Failed to retrieve memory context:', memoryError.message);
+        memoryContext = { profile: null, recentSessions: [], formattedContext: '' };
+      }
     }
 
     const queryEmbedding = await embeddings.embedQuery(query);
@@ -152,21 +162,25 @@ Do NOT say "According to my memory" or "My records show" - be natural.`;
       // Continue without scores if evaluation fails
     }
 
-    // Fire-and-forget session summarization (zero latency impact)
-    if (messages && Array.isArray(messages) && messages.length > 0) {
-      // Include current query and response in messages for summarization
-      const messagesForSummary = [
-        ...messages,
-        { role: 'user', content: query },
-        { role: 'assistant', content: answer }
-      ];
-      summarizeSessionAsync(userId, currentSessionId, messagesForSummary);
-    } else {
-      // If no message history provided, summarize just this exchange
-      summarizeSessionAsync(userId, currentSessionId, [
-        { role: 'user', content: query },
-        { role: 'assistant', content: answer }
-      ]);
+    // Fire-and-forget session summarization (zero latency impact). Skipped
+    // when skipMemory is true so eval runs do not write contaminating
+    // session summaries that later prompts would inherit.
+    if (!skipMemory) {
+      if (messages && Array.isArray(messages) && messages.length > 0) {
+        // Include current query and response in messages for summarization
+        const messagesForSummary = [
+          ...messages,
+          { role: 'user', content: query },
+          { role: 'assistant', content: answer }
+        ];
+        summarizeSessionAsync(userId, currentSessionId, messagesForSummary);
+      } else {
+        // If no message history provided, summarize just this exchange
+        summarizeSessionAsync(userId, currentSessionId, [
+          { role: 'user', content: query },
+          { role: 'assistant', content: answer }
+        ]);
+      }
     }
 
     return NextResponse.json({
