@@ -1,8 +1,8 @@
 # AI Career Coach - System Architecture
 
-**Version:** 1.0  
-**Last Updated:** December 2025  
-**Status:** Production-Ready MVP
+**Version:** 3.0
+**Last Updated:** May 2026
+**Status:** Deployed to Vercel; live at https://ai-career-coach-hazel.vercel.app
 
 ---
 
@@ -452,7 +452,7 @@ Response Generated
 
 | Layer | Technology | Version/Purpose |
 |-------|------------|-----------------|
-| **Frontend Framework** | Next.js | 16.0.3 |
+| **Frontend Framework** | Next.js | 16.1.3 |
 | **UI Library** | React | 19.2.0 |
 | **Styling** | Tailwind CSS | 4.x |
 | **Components** | shadcn/ui | Radix UI primitives |
@@ -465,7 +465,7 @@ Response Generated
 | **Text Splitting** | LangChain | RecursiveCharacterTextSplitter |
 | **Orchestration** | LangGraph | 1.0.2 (for multi-agent) |
 | **Analytics** | PostHog | 1.297.2 (optional) |
-| **Deployment** | Vercel | (planned) |
+| **Deployment** | Vercel | (deployed) |
 
 ---
 
@@ -563,19 +563,21 @@ Response Generated
 
 ## Future Architecture Considerations
 
-### Short-term (Q1 2025)
-- **LangGraph Integration:** Complex multi-agent orchestration with state management
+### Shipped (as of May 2026)
+- **LangGraph Integration:** Multi-agent orchestration via `lib/report-graph.ts`
+
+### Short-term
 - **Streaming Responses:** Real-time response streaming for better UX
 - **Caching Layer:** Redis for frequently accessed data
 - **Rate Limiting:** Protect against abuse
 
-### Medium-term (Q2 2025)
+### Medium-term
 - **Voice Interface:** WebRTC for interview practice
 - **Multi-Resume Support:** Version management for multiple resume iterations
 - **Advanced RAG:** Hybrid search (vector + keyword), reranking
 - **A/B Testing:** Framework for prompt and model experimentation
 
-### Long-term (Q3-Q4 2025)
+### Long-term
 - **Microservices:** Split agents into separate services
 - **Event-Driven Architecture:** Kafka/PubSub for async processing
 - **Multi-Region:** Global deployment for low latency
@@ -713,5 +715,4 @@ Response: Markdown string (text/markdown)
 
 ---
 
-*Last updated: December 2025*  
-*Next review: January 2026*
+*Last updated: May 2026*

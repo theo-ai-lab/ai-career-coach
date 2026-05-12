@@ -2,6 +2,8 @@
 
 This document captures key technical and product decisions made throughout development, including context, alternatives considered, and rationale.
 
+> **Note on dating:** Decisions 1-13 below carry "October-December 2024" dates that predate the project's first commit (`2025-11-22`). These entries were **documented retroactively in approximately April-May 2026**, reconstructed from code state and commit history. The dates reflect when each decision was originally made in the author's working notes, not when the entry was written into this log. Decisions 14-15 onward are written contemporaneously and dated accordingly.
+
 ---
 
 ## Decision 1: Vector Database Selection
