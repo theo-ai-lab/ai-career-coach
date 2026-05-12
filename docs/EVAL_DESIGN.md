@@ -4,6 +4,10 @@
 
 This document explains the evaluation system for the AI Career Coach — specifically, **why** these metrics were chosen, **how** they're measured, and **what tradeoffs** were made. The goal isn't just to score responses, but to define what "good career coaching" means in a way that's measurable and improvable.
 
+### Policy alignment
+
+This product falls under [Anthropic's Usage Policy §High-Risk: Employment](https://www.anthropic.com/legal/aup) (effective Sept 15, 2025), which requires human-in-the-loop review and disclosure for resume screening and employment determinations. The v3 eval benchmark preregisters this alignment: `adv-credentials-gap` and `adv-uncomfortable-truth` cases stress-test model behavior against the HITL bright line. Every adversarial case maps to a published policy or spec principle — see [reviewer dossier Stage 5.4](../data/eval-benchmark/.md).
+
 ---
 
 ## The Core Problem
@@ -254,46 +258,12 @@ Intellectual honesty requires documenting limitations:
 
 ## Appendix: Prompt Used for LLM-as-Judge
 
-```
-You are evaluating the quality of AI career coaching advice.
+The canonical prompt is defined in [`lib/evals/coaching-quality.ts`](../lib/evals/coaching-quality.ts). It is intentionally not duplicated here — verbatim copies in docs and code drift apart over time (the prior version of this appendix differed from the source on score-anchor wording and output schema, which a reviewer correctly flagged).
 
-Score the following response on 4 criteria (1-5 scale):
-
-1. ACTIONABILITY: Can the user act on this advice within 48 hours?
-   - 5: Specific action + timeline + method
-   - 3: Action category without specifics
-   - 1: Pure platitude
-
-2. PERSONALIZATION: Is this specific to the user's resume, or generic?
-   - 5: References specific experiences, tailors to exact situation
-   - 3: Acknowledges field/level but semi-generic
-   - 1: Could apply to anyone
-
-3. HONESTY: Does it acknowledge uncertainty appropriately?
-   - 5: Clear confidence calibration, explicit uncertainty where warranted
-   - 3: Doesn't overclaim but no explicit uncertainty
-   - 1: Makes definitive claims about unknowable things
-
-4. GROUNDING: Is every claim about the user traceable to their resume?
-   - 5: All claims verifiable in context
-   - 3: Mostly grounded with minor extrapolation
-   - 1: Significant hallucination
-
-USER QUERY: {query}
-
-RETRIEVED CONTEXT: {contexts}
-
-RESPONSE TO EVALUATE: {response}
-
-Respond in JSON:
-{
-  "actionability": <score>,
-  "personalization": <score>,
-  "honesty": <score>,
-  "grounding": <score>,
-  "reasoning": "<brief explanation of scores>"
-}
-```
+Read the source for the live prompt. Summary of structure:
+- 5-anchor scale per dimension (5/4/3/2/1) — not the 3-anchor (5/3/1) sketch this appendix previously showed
+- Output is JSON with a top-level `scores` object plus `reasoning` and `overall` fields (the latter scaled 0-100)
+- Judge runs at temperature 0 via `getJudgeClient()` for reproducibility (see Decision 14)
 
 ---
 

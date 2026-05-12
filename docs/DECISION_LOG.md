@@ -343,11 +343,11 @@ This document captures key technical and product decisions made throughout devel
 
 ## Decision 11: HITL Implementation Approach
 
-**Date:** December 2024  
+**Date:** December 2024 (initial framing); shipped v1 May 2026
 
-**Status:** In Progress  
+**Status:** v1 shipped (keyword-based); v2 (confidence-threshold gating) planned
 
-**Context:** High-stakes outputs (salary scripts, major career pivots) need human review option. Balance safety with UX.
+**Context:** High-stakes outputs (salary scripts, major career pivots, mental-health mentions, legal/medical advice) need human review option. Balance safety with UX.
 
 **Options Considered:**
 
@@ -356,22 +356,17 @@ This document captures key technical and product decisions made throughout devel
 | No HITL | Simpler, faster | Risk of harmful advice |
 | Confidence threshold trigger | Automatic escalation, scalable | Need to calibrate threshold, false positives |
 | User-initiated review | User control, simple | May not know when to ask |
-| Mandatory for categories | Clear rules, safe | Slower for some use cases, may be unnecessary |
+| Mandatory for categories (v1 shipped) | Clear rules, safe | Slower for some use cases, may be unnecessary |
 | Hybrid (threshold + categories) | Flexible, safe | Complex, need to define rules |
 
-**Decision:** Confidence threshold + category-based triggers (TBD)
+**Decision (v1):** Keyword-based detection across mandatory categories (salary, major pivots, legal, medical, mental health). Implementation lives in `lib/hitl-detection.ts`; surfaced via `components/HITLWarning.tsx` as a UI-level review gate.
 
-**Rationale:** 
-- Some topics (salary, major pivots, mental health mentions) should always offer human review
-- Others can use confidence scores from evaluation
-- Still defining exact thresholds and categories
-- Will implement as feature flag for gradual rollout
+**Decision (v2, planned):** Layer confidence-threshold gating on top of v1 once the live LLM-as-judge is sturdy enough to trust as an escalation signal. Red-team 2026-05-11 (see `data/eval-benchmark/red-team-observations.md`) surfaced that the live judge has a false-confirmation blind spot — v2 should not gate on judge confidence until that's addressed.
 
-**Future Implementation:**
-- Escalation triggers for specific keywords/topics
-- Confidence score threshold (e.g., <70/100 triggers review)
-- UI to request human review
-- Admin dashboard for reviewing flagged outputs
+**Rationale:**
+- Keyword matching is brittle but reviewable, fast, and ships today
+- Confidence-threshold gating depends on a trustworthy judge; current judge is not yet trustworthy enough to be the gate
+- The two-step ladder (keyword v1 → confidence v2) is the honest path
 
 ---
 

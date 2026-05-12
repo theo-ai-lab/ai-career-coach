@@ -2,7 +2,7 @@
 
 A controlled synthetic benchmark designed to test whether the LLM-as-judge rubric in `lib/evals/coaching-quality.ts` actually distinguishes good coaching responses from bad ones, and to compare retrieval and generation choices on a fixed test set.
 
-This is the methodology document. Cases live in `cases/`. Personas live in `personas/`. Results from each run live in `results/YYYY-MM-DD.json`. Run with `npx tsx scripts/run-eval-benchmark.ts`.
+This is the methodology document. Cases live in `cases/`. Personas live in `personas/`. Results from each run live in `results/YYYY-MM-DD.json`. Run with `node scripts/run-eval-benchmark.cjs --smoke` (the runner is CJS + native fetch because tsx + `@langchain/openai` hangs on module load in this Node 24 environment — see the script preamble).
 
 ---
 
@@ -99,7 +99,7 @@ A trade-off the field hasn't fully settled. Anthropic's research found single ju
 Resolution: run both, transparently.
 
 **Primary path (every case, every dimension):**
-- `anthropic/claude-opus-4.7` at temperature 0
+- `anthropic/claude-opus-4.7` at temperature 0 (model IDs in this doc are OpenRouter slugs; canonical Anthropic identifier is `claude-opus-4-7`. Exact strings depend on OpenRouter catalog state at run time and are not yet verified against a live `/v1/models` query — first full run will surface any drift.)
 - 4 judge calls per case (one per dimension), isolated
 - Every case scored, full per-persona/per-model report
 
@@ -247,18 +247,17 @@ Skip the embedding keys to run the core benchmark (generation + judging) without
 ```bash
 # Smoke test FIRST on every fresh setup: 5 cases x 1 model x no council, ~$0.10, ~2 min.
 # Validates auth + retrieval + judge flow before spending real money on a full run.
-npx tsx scripts/run-eval-benchmark.ts --smoke
+node scripts/run-eval-benchmark.cjs --smoke
 
 # Dry run: validates env keys + lists what would run, no API calls, no spend.
-npx tsx scripts/run-eval-benchmark.ts --dry-run
-
-# Full run with cost kill-switch (aborts mid-run if projected cost exceeds the cap).
-npx tsx scripts/run-eval-benchmark.ts --max-cost-usd=50
-
-# Run a single experiment in isolation.
-npx tsx scripts/run-eval-benchmark.ts --experiment=cross-model    # generation comparison only
-npx tsx scripts/run-eval-benchmark.ts --experiment=embedding      # embedding comparison only
-npx tsx scripts/run-eval-benchmark.ts --experiment=council        # council validation only
+# NOTE: --dry-run, --max-cost-usd, and --experiment are documented design targets
+# but not yet implemented in the current runner (see script preamble). The smoke
+# path validates the pipeline end-to-end; full-run + experiment flags land later.
+node scripts/run-eval-benchmark.cjs --dry-run       # (Planned)
+node scripts/run-eval-benchmark.cjs --max-cost-usd=50  # (Planned)
+node scripts/run-eval-benchmark.cjs --experiment=cross-model  # (Planned)
+node scripts/run-eval-benchmark.cjs --experiment=embedding    # (Planned)
+node scripts/run-eval-benchmark.cjs --experiment=council      # (Planned)
 ```
 
 The runner:
@@ -270,7 +269,7 @@ The runner:
 6. Computes statistics: bootstrap CIs on ordinal scores, Krippendorff's α on the council subset, adversarial pass-rate as a separate binary metric
 7. Writes `results/YYYY-MM-DD.json`
 
-The admin page at `/admin/evals` reads the most recent results file and renders the per-persona jaggedness map.
+The admin page at `/admin/evals` reads aggregated scores from the Supabase `evals` table via `/api/admin/evals` — it surfaces production live-eval data, not benchmark results files. The per-persona jaggedness visualization on top of benchmark results is on the post-v3 roadmap, not yet shipped.
 
 ---
 
@@ -278,7 +277,7 @@ The admin page at `/admin/evals` reads the most recent results file and renders 
 
 Intellectual honesty requires documenting limitations:
 
-- **Real-user satisfaction** — no users involved in the benchmark itself; covered separately by user research interviews ([`docs/USER_RESEARCH.md`](../../docs/USER_RESEARCH.md), pending).
+- **Real-user satisfaction** — no users involved in the benchmark itself. User research is not yet documented in this repo and would be a separate work stream from this rubric validation.
 - **Long-term outcome correlation** — the benchmark measures response quality, not whether users who acted on the responses got jobs. That's a longitudinal study that requires production telemetry over months.
 - **Cases outside the 5 persona archetypes** (non-English resumes, non-tech roles, executive transitions). The 50-persona sample covers most early-career-to-mid-career tech personas, not all candidate populations.
 - **Tone, fluency, grammar** — rejected as criteria upstream in `docs/EVAL_DESIGN.md`. The benchmark does not score for these.
