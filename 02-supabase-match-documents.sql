@@ -1,4 +1,4 @@
--- Run supabase-documents.sql FIRST. This file assumes the documents table exists
+-- Run 01-supabase-documents.sql FIRST. This file assumes the documents table exists
 -- with columns (id bigint, content text, embedding vector(1536), metadata jsonb).
 
 -- Create the match_documents RPC function for vector similarity search
@@ -72,7 +72,7 @@ $$;
 GRANT EXECUTE ON FUNCTION match_documents_v2(vector, int, text, text) TO anon;
 GRANT EXECUTE ON FUNCTION match_documents_v2(vector, int, text, text) TO authenticated;
 
--- HNSW index for embedding lives in supabase-documents.sql (canonical).
+-- HNSW index for embedding lives in 01-supabase-documents.sql (canonical).
 
 
 

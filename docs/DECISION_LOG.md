@@ -491,7 +491,7 @@ This document captures key technical and product decisions made throughout devel
 - Reproducibility: clone → run files in documented order → app works
 - Standalone-safe: enables RLS + permissive default policies that `supabase-fix.sql` later refines
 
-**Implementation:** Commit `fc3c086`. New file `supabase-documents.sql` (CREATE EXTENSION vector, CREATE TABLE documents, HNSW + GIN indexes, ALTER TABLE ENABLE RLS, basic anon policies).
+**Implementation:** Commit `fc3c086`. New file `supabase-documents.sql` (CREATE EXTENSION vector, CREATE TABLE documents, HNSW + GIN indexes, ALTER TABLE ENABLE RLS, basic anon policies). _Renamed to `01-supabase-documents.sql` in pre-ship hygiene pass (2026-05-12) to encode load order alphabetically; references in this section preserve the original filenames for historical accuracy._
 
 ---
 

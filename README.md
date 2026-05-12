@@ -205,7 +205,7 @@ NEXT_PUBLIC_POSTHOG_HOST=https://us.i.posthog.com
 npm run dev
 ```
 
-Requires Supabase project with pgvector extension enabled. SQL setup files at repo root, run in this order: `supabase-documents.sql` (documents table + pgvector extension + HNSW index), `supabase-match-documents.sql` (RPC functions for vector search), `supabase-memory.sql` (user profiles + session memory), `supabase-evals.sql` (eval logging), `supabase-fix.sql` (RLS policies).
+Requires Supabase project with pgvector extension enabled. SQL setup files at repo root, run in alphabetical order: `01-supabase-documents.sql` (documents table + pgvector extension + HNSW index), `02-supabase-match-documents.sql` (RPC functions for vector search), `03-supabase-memory.sql` (user profiles + session memory), `04-supabase-evals.sql` (eval logging), `05-supabase-fix.sql` (RLS policies).
 
 ---
 

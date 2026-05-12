@@ -20,8 +20,14 @@ CREATE POLICY "allow authenticated insert" ON documents
   TO authenticated 
   WITH CHECK (true);
 
-CREATE POLICY "allow authenticated select" ON documents 
-  FOR SELECT 
-  TO authenticated 
-  USING (metadata->>'userId' = auth.uid()::text OR true);
+-- Authenticated reads scope to the user's own rows. The previous
+-- version of this clause contained "OR true" which short-circuited the
+-- user-id filter and made RLS a no-op for authenticated reads
+-- (pre-ship audit 2026-05-12, L2-069). Until real auth lands, this
+-- policy is dormant (no callers run as `authenticated`), so removing
+-- "OR true" is non-breaking.
+CREATE POLICY "allow authenticated select" ON documents
+  FOR SELECT
+  TO authenticated
+  USING (metadata->>'userId' = auth.uid()::text);
 

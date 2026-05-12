@@ -48,6 +48,16 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Reject empty input. Red-team ec-01 (2026-05-11) showed an empty
+    // query was embedded, retrieved against, and used to ground a
+    // fabricated response — the route had no input boundary validation.
+    if (typeof query !== 'string' || query.trim().length === 0) {
+      return NextResponse.json(
+        { error: 'query required' },
+        { status: 400 }
+      );
+    }
+
     const supabase = getSupabaseClient();
     const embeddings = getEmbeddings();
     const llm = getLLM();
@@ -197,10 +207,12 @@ Do NOT say "According to my memory" or "My records show" - be natural.`;
     });
 
   } catch (error: any) {
+    // Log the full error server-side. Do NOT echo error.message to the
+    // client — it can leak Supabase/OpenAI internals (table names, RPC
+    // signatures, auth details). Pre-ship audit 2026-05-12, L2-038.
     console.error('Query error:', error);
-    return NextResponse.json({ 
+    return NextResponse.json({
       answer: 'Sorry, I encountered an error processing your query.',
-      error: error.message 
     }, { status: 500 });
   }
 }
