@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 
+import { toast } from "sonner";
+
 import { Button } from "@/components/ui/button";
 
 import { Input } from "@/components/ui/input";
@@ -198,7 +200,7 @@ export default function Home() {
                   });
                   if (!res.ok) {
                     const text = await res.text();
-                    alert("Upload failed: " + text);
+                    toast.error("Upload failed", { description: text });
                     return;
                   }
                   const data = await res.json();
@@ -208,12 +210,18 @@ export default function Home() {
                       setCurrentResumeId(data.resumeId);
                       setResumeFileName(file.name);
                     }
-                    alert(`Resume uploaded. ${data.chunks} chunks ingested.`);
+                    toast.success("Resume uploaded", {
+                      description: `${data.chunks} chunks ingested.`,
+                    });
                   } else {
-                    alert("Error: " + (data.error || "Unknown error"));
+                    toast.error("Upload error", {
+                      description: data.error || "Unknown error",
+                    });
                   }
                 } catch (err: any) {
-                  alert("Upload failed: " + (err?.message ?? "Unknown error"));
+                  toast.error("Upload failed", {
+                    description: err?.message ?? "Unknown error",
+                  });
                 }
               }}
             />
@@ -240,7 +248,10 @@ export default function Home() {
             onClick={() => {
               localStorage.removeItem("currentResumeId");
               setCurrentResumeId(null);
-              alert("Resume cleared! Upload a new one.");
+              setResumeFileName(null);
+              toast("Resume cleared", {
+                description: "Upload a new one to continue.",
+              });
             }}
           >
             Clear Current Resume
