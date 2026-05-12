@@ -230,7 +230,7 @@ Iterative prompt optimization, run as a standard scientific loop. Each cycle:
 1. Identify failure mode through eval scores and agent trace logs
 2. Form hypothesis about root cause (routing error vs. prompt gap vs. retrieval miss)
 3. Adjust the specific component (prompt, routing logic, retrieval threshold)
-4. Re-run eval suite across 200+ simulated user personas
+4. Re-run eval suite across 200+ simulated user personas (Planned; on disk today: 3 personas. See [`data/eval-benchmark/README.md`](data/eval-benchmark/README.md) implementation status section.)
 5. Measure delta — ship only if composite score improves without regression on any dimension
 
 Error budgets govern releases: if any eval dimension drops below threshold, the update doesn't ship.

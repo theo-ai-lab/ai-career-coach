@@ -43,13 +43,15 @@ The benchmark fails on a dimension if the corresponding adversarial case scores 
 
 ---
 
-## Scope: 275 cases
+## Scope: 275 cases (Planned)
+
+> **Implementation status as of 2026-05-12:** On disk today: 3 personas, 2 normal cases, 0 adversarial cases in `cases/adversarial/`, plus the 25-prompt red-team set in `red-team-prompts.json`. The 275/50/25 scope below is the **target design** the methodology is being built toward — not what currently ships. The first implementation milestone is the N=12 preregistered case set described in [`PM_DECISION_MEMO.md`](PM_DECISION_MEMO.md). Counts annotated **(Planned)** below until they exist on disk.
 
 **50 synthetic personas** (`personas/*.json`) — none correspond to a real person. Each persona has a detailed resume text with enough surface area to ground responses against.
 
-**250 normal cases** (`cases/normal/*.json`) — 5 queries per persona, selected to exercise different rubric dimensions. The system generates the response via the production code path. The judge scores it.
+**250 normal cases** (Planned) (`cases/normal/*.json`) — 5 queries per persona, selected to exercise different rubric dimensions. The system generates the response via the production code path. The judge scores it.
 
-**25 adversarial cases** (`cases/adversarial/*.json`) — each pairs a persona+query with a **deliberately bad response**, plus an `expected_max_score` for the dimension being tested. The judge scores the bad response. If the score exceeds the max, the rubric is broken on that dimension.
+**25 adversarial cases** (Planned) (`cases/adversarial/*.json`) — each pairs a persona+query with a **deliberately bad response**, plus an `expected_max_score` for the dimension being tested. The judge scores the bad response. If the score exceeds the max, the rubric is broken on that dimension. The 25 red-team prompts in `red-team-prompts.json` (executed 2026-05-11 against production) are the empirical antecedent that the adversarial case set will be derived from.
 
 This scale is large enough to support bootstrap confidence intervals on per-model and per-persona score deltas (which the smaller "20-case" benchmarks in many tutorials cannot defensibly provide).
 
@@ -117,7 +119,7 @@ This gets the consistency Anthropic recommends *and* the cross-lab robustness ch
 
 ## Generation: cross-model comparison via OpenRouter
 
-The same 275 cases are run through 5 generation models, all via OpenRouter (single SDK, unified API, ~30 min refactor of `getGenClient()`):
+The same 275 cases (Planned) are run through 5 generation models, all via OpenRouter (single SDK, unified API, ~30 min refactor of `getGenClient()`):
 
 | Model | Tier | Why included |
 |-------|------|--------------|
@@ -133,7 +135,7 @@ The same 275 cases are run through 5 generation models, all via OpenRouter (sing
 
 ## Retrieval: embedding model comparison
 
-Same 275 cases, same generation+judge pipeline, swapped embedding model on the retrieval step:
+Same 275 cases (Planned), same generation+judge pipeline, swapped embedding model on the retrieval step:
 
 | Embedding | Source | Why test |
 |-----------|--------|----------|
@@ -150,7 +152,7 @@ This experiment is the basis for any future migration claim. "I tested 4 embeddi
 
 ## Adversarial cases: failure-mode taxonomy
 
-The 25 adversarial cases are mapped to a documented taxonomy aligned with [Agent-SafetyBench](https://venturebeat.com/security/frontier-models-are-failing-one-in-three-production-attempts-and-getting-harder-to-audit) and OS-HARM safety categories where they overlap.
+The 25 adversarial cases (Planned) are mapped to a documented taxonomy aligned with [Agent-SafetyBench](https://venturebeat.com/security/frontier-models-are-failing-one-in-three-production-attempts-and-getting-harder-to-audit) and OS-HARM safety categories where they overlap.
 
 | Category | Probe | Hypothesis |
 |----------|-------|-----------|
@@ -216,7 +218,7 @@ Any failure triggers a rubric revision. The revision and its rationale get docum
 
 ## Cost + runtime budget
 
-Per full run (275 cases × ~11.4 LLM calls average × ~3K tokens per call ≈ 9.4M tokens):
+Per full run (275 cases (Planned) × ~11.4 LLM calls average × ~3K tokens per call ≈ 9.4M tokens):
 
 - Generation across 5 models: ~$15-25
 - Per-dimension primary judge (Claude Opus 4.7): ~$10-15
