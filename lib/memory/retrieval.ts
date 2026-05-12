@@ -46,17 +46,3 @@ export async function getMemoryContext(userId: string): Promise<MemoryContext> {
     return { profile: null, recentSessions: [], formattedContext: '' };
   }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-

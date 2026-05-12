@@ -60,17 +60,3 @@ export async function upsertUserProfile(profile: UserProfile): Promise<void> {
     console.warn('[Memory] Error upserting profile:', error.message);
   }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-

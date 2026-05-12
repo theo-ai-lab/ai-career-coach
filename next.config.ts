@@ -1,7 +1,4 @@
 /** @type {import('next').NextConfig} */
-const nextConfig = {
-  // Next.js 16 uses Turbopack by default
-  // Remove invalid config options that are not supported
-}
+const nextConfig = {}
 
 module.exports = nextConfig

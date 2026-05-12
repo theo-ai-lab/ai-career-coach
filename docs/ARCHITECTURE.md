@@ -715,14 +715,3 @@ Response: Markdown string (text/markdown)
 
 *Last updated: December 2025*  
 *Next review: January 2026*
-
-
-
-
-
-
-
-
-
-
-

@@ -1,5 +1,3 @@
-// lib/agents/resume-analyzer/node.ts
-
 import { ResumeAnalysisSchema } from "./schema";
 
 import { OpenAIEmbeddings } from "@langchain/openai";

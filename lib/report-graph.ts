@@ -26,6 +26,10 @@ import { getResumeContextById, getChatClient } from '@/lib/rag';
 import { evaluateCoachingQuality } from '@/lib/evals/coaching-quality';
 import { getSupabase } from '@/lib/supabase';
 
+const log = process.env.NODE_ENV !== 'production'
+  ? (...args: unknown[]) => console.log('[report-graph]', ...args)
+  : () => {};
+
 /**
  * State interface for the report generation graph
  */
@@ -125,10 +129,10 @@ async function evaluateResponse(
  */
 async function resumeContextNode(state: ReportState): Promise<Partial<ReportState>> {
   try {
-    console.log('Report graph: retrieving resume context for', state.resumeId);
+    log('retrieving resume context for', state.resumeId);
     const result = await getResumeContextById(state.resumeId, 12);
     const resumeContext = result.chunks.join('\n\n');
-    console.log('Report graph: retrieved', result.chunks.length, 'chunks');
+    log('retrieved', result.chunks.length, 'chunks');
     return { resumeContext: result.chunks };
   } catch (error: any) {
     if (error.message?.includes('No documents found for resumeId')) {
@@ -143,7 +147,7 @@ async function resumeContextNode(state: ReportState): Promise<Partial<ReportStat
  */
 async function resumeAnalysisNode(state: ReportState): Promise<Partial<ReportState>> {
   try {
-    console.log('Report graph: starting resumeAnalysis');
+    log('starting resumeAnalysis');
     const llm = getChatClient();
     const resumeContext = state.resumeContext!.join('\n\n');
     
@@ -195,7 +199,7 @@ Additional formatting constraints:
       state.resumeId
     );
     
-    console.log('Report graph: resumeAnalysis done');
+    log('resumeAnalysis done');
     return { resumeAnalysis, resumeAnalysisEval };
   } catch (error: any) {
     throw new Error(`Resume analysis failed: ${error.message}`);
@@ -207,7 +211,7 @@ Additional formatting constraints:
  */
 async function gapAnalysisNode(state: ReportState): Promise<Partial<ReportState>> {
   try {
-    console.log('Report graph: starting gapAnalysis');
+    log('starting gapAnalysis');
     const llm = getChatClient();
     const jobDesc = state.jobDescription || `APM role at ${state.targetCompany} working on AI-native product experiences.`;
     
@@ -257,7 +261,7 @@ Additional formatting constraints:
       state.resumeId
     );
     
-    console.log('Report graph: gapAnalysis done');
+    log('gapAnalysis done');
     return { gapAnalysis, gapAnalysisEval };
   } catch (error: any) {
     throw new Error(`Gap analysis failed: ${error.message}`);
@@ -269,7 +273,7 @@ Additional formatting constraints:
  */
 async function jobMatchingNode(state: ReportState): Promise<Partial<ReportState>> {
   try {
-    console.log('Report graph: starting jobMatching');
+    log('starting jobMatching');
     const llm = getChatClient();
     const resumeContext = state.resumeContext!.join('\n\n');
     
@@ -310,7 +314,7 @@ Additional formatting rules:
     const response = await llm.invoke(prompt);
     const jobMatching = parseJsonResponse(response.content.toString(), 'job matching');
     
-    console.log('Report graph: jobMatching done');
+    log('jobMatching done');
     return { jobMatching };
   } catch (error: any) {
     throw new Error(`Job matching failed: ${error.message}`);
@@ -322,7 +326,7 @@ Additional formatting rules:
  */
 async function coverLetterNode(state: ReportState): Promise<Partial<ReportState>> {
   try {
-    console.log('Report graph: starting coverLetter');
+    log('starting coverLetter');
     const llm = getChatClient();
     
     const prompt = `You are an AI career coach helping a candidate write a tailored cover letter.
@@ -366,7 +370,7 @@ Return ONLY the markdown cover letter text (no JSON wrapper).`;
       state.resumeId
     );
     
-    console.log('Report graph: coverLetter done');
+    log('coverLetter done');
     return { coverLetter, coverLetterEval };
   } catch (error: any) {
     throw new Error(`Cover letter generation failed: ${error.message}`);
@@ -378,7 +382,7 @@ Return ONLY the markdown cover letter text (no JSON wrapper).`;
  */
 async function interviewPrepNode(state: ReportState): Promise<Partial<ReportState>> {
   try {
-    console.log('Report graph: starting interviewPrep');
+    log('starting interviewPrep');
     const llm = getChatClient();
     
     const prompt = `You are an AI career coach preparing a candidate for interviews at ${state.targetCompany} for ${state.targetRole}.
@@ -433,7 +437,7 @@ Additional requirements:
       state.resumeId
     );
     
-    console.log('Report graph: interviewPrep done');
+    log('interviewPrep done');
     return { interviewPrep, interviewPrepEval };
   } catch (error: any) {
     throw new Error(`Interview prep generation failed: ${error.message}`);
@@ -445,7 +449,7 @@ Additional requirements:
  */
 async function strategyPlanNode(state: ReportState): Promise<Partial<ReportState>> {
   try {
-    console.log('Report graph: starting strategyPlan');
+    log('starting strategyPlan');
     const llm = getChatClient();
     
     const prompt = `You are an AI career coach creating a 6-month strategy plan.
@@ -497,7 +501,7 @@ Additional formatting constraints:
       state.resumeId
     );
     
-    console.log('Report graph: strategyPlan done');
+    log('strategyPlan done');
     return { strategyPlan, strategyPlanEval };
   } catch (error: any) {
     throw new Error(`Strategy plan generation failed: ${error.message}`);
@@ -509,7 +513,7 @@ Additional formatting constraints:
  */
 async function compileReportNode(state: ReportState): Promise<Partial<ReportState>> {
   try {
-    console.log('Report graph: compiling final report');
+    log('compiling final report');
     
     const formatConfidence = (evalResult: any, sectionName: string): string => {
       if (!evalResult) return '';
@@ -636,7 +640,7 @@ ${[
 
 *View detailed evaluations at /admin/evals*`;
 
-    console.log('Report graph: final report compiled');
+    log('final report compiled');
     return { reportMarkdown };
   } catch (error: any) {
     throw new Error(`Report compilation failed: ${error.message}`);

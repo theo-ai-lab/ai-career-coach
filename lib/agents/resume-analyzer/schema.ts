@@ -1,5 +1,3 @@
-// lib/agents/resume-analyzer/schema.ts
-
 import { z } from "zod";
 
 

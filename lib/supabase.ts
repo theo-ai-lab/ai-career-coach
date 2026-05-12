@@ -1,4 +1,3 @@
-// lib/supabase.ts
 import { createClient } from '@supabase/supabase-js';
 
 let supabaseInstance: ReturnType<typeof createClient> | null = null;

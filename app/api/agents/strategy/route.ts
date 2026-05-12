@@ -17,10 +17,6 @@ export async function POST(req: NextRequest) {
 
     // Detect high-stakes content (e.g., quitting current job, major career changes)
     const highStakes = detectHighStakesInData(plan);
-    
-    // Debug logging
-    const content = JSON.stringify(plan);
-    console.log('Strategy highStakes:', highStakes, 'content sample:', content.substring(0, 200));
 
     return Response.json({ success: true, plan, highStakes });
   } catch (error: any) {

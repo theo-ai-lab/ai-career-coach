@@ -65,14 +65,3 @@ export function detectHighStakesInData(data: any): boolean {
   
   return detectHighStakes(content);
 }
-
-
-
-
-
-
-
-
-
-
-

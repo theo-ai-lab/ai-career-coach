@@ -1,5 +1,3 @@
-// lib/agents/gap-finder/schema.ts
-
 import { z } from "zod";
 
 

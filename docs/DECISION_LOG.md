@@ -529,14 +529,3 @@ Throughout development, we've followed these principles:
 
 *Last updated: May 2026*  
 *Next review: June 2026*
-
-
-
-
-
-
-
-
-
-
-

@@ -19,7 +19,6 @@ async function ingest() {
     chunkOverlap: 200,
   });
 
-  // Fixed line — metadata goes in the second argument now
   const docs = await splitter.createDocuments([text], [
     { metadata: { userId: 'test-user', source: 'resume.txt' } }
   ]);

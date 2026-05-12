@@ -1,5 +1,3 @@
-// lib/agents/gap-finder/node.ts
-
 import { GapAnalysisSchema } from "./schema";
 
 import { ChatOpenAI } from "@langchain/openai";

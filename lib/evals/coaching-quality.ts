@@ -1,7 +1,6 @@
 // lib/evals/coaching-quality.ts
 // LLM-as-judge evaluator for coaching quality
 
-import { ChatOpenAI } from '@langchain/openai';
 import { getJudgeClient } from '@/lib/rag';
 
 export interface CoachingQualityInput {
