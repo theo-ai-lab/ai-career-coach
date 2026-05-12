@@ -9,6 +9,13 @@ Built as a solo project to solve a real problem: career advice is either generic
 
 [LinkedIn](https://linkedin.com/in/theobermudez) · [Architecture](docs/ARCHITECTURE.md) · [Decision Log](docs/DECISION_LOG.md) · [Eval Framework](docs/EVAL_DESIGN.md)
 
+### What to read first
+
+- [**Eval benchmark methodology**](data/eval-benchmark/README.md) — Three Gulfs anchoring, preregistered judge architecture, falsifiability conditions, cost budget. The methodology document.
+- [**Red-team findings (May 2026)**](data/eval-benchmark/red-team-observations.md) — 25 adversarial prompts run against production. 6 failed / 9 material / 5 minor / 5 none. Strongest finding: the live LLM-as-judge scored a clear false-confirmation 85/100 on `mr-02`, exposing a blind spot in the rubric itself.
+- [**PM Decision Memo**](data/eval-benchmark/PM_DECISION_MEMO.md) — preregistered three-way decision threshold for the production model migration (gpt-4o-mini → gpt-5.4-mini + gpt-5.5). Direction-of-effect is the gating signal; CI bounds are reported for transparency only. N=12.
+- [**Decision Log**](docs/DECISION_LOG.md) — 15 dated decisions with options-considered tables and implementation refs. Decisions 1-13 documented retroactively (see header note); Decisions 14-15 written contemporaneously. Example: Decision 14 (LLM-as-judge temperature 0) explains why eval reproducibility took precedence over generation diversity.
+
 ![App Screenshot](docs/screenshot.png)
 
 ---
@@ -18,6 +25,8 @@ Built as a solo project to solve a real problem: career advice is either generic
 Built solo over 5+ months (54+ commits, November 2025 → May 2026). Live deployment at the URL above. Three release cycles documented in git tags (v1.0, v2.0, v3.0). The eval framework, memory layer, and LangGraph orchestration are all in this public repo. Full architecture decisions in [docs/DECISION_LOG.md](docs/DECISION_LOG.md), evaluation methodology in [docs/EVAL_DESIGN.md](docs/EVAL_DESIGN.md).
 
 This is a working prototype with a real user base. Production analytics (user counts, query volume, eval scores) live in PostHog and Supabase — those data sources are not committed to the repo. There is no auth, rate limiting, or end-to-end outcome tracking yet — those are planned, not built.
+
+Known failure modes surfaced by the red-team (May 2026) — including a cross-conversation memory leak in `/api/query` traced to `userId = resumeId` aliasing — are documented in [`data/eval-benchmark/red-team-observations.md`](data/eval-benchmark/red-team-observations.md) and partially mitigated. The fix shipped behind a `skipMemory: true` request-body flag (see `app/api/query/route.ts` and the comment block at lines 28-33) so eval runs get clean stateless responses without changing default behavior for real users.
 
 Personal process rules live in `/` — postmortem template, peer-review checklist, learning-opportunity capture, plan/execute/document workflow notes. They shape how the project gets iterated, not what it does.
 
