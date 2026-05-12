@@ -1,7 +1,24 @@
 {
   "name": "ai-career-coach",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "private": true,
+  "description": "AI career coach for resume-grounded coaching, with a preregistered honesty / grounding eval benchmark and adversarial red-team.",
+  "author": "Theo Bermudez",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Theo-ai-lab/ai-career-coach.git"
+  },
+  "keywords": [
+    "rag",
+    "career-coach",
+    "llm-evals",
+    "adversarial-red-team",
+    "langgraph",
+    "nextjs",
+    "supabase",
+    "pgvector"
+  ],
   "scripts": {
     "dev": "next dev",
     "build": "next build",
