@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
+import type { Database } from '@/lib/supabase-types';
 
-let supabaseInstance: ReturnType<typeof createClient> | null = null;
+let supabaseInstance: ReturnType<typeof createClient<Database>> | null = null;
 
 export function getSupabase() {
   if (!supabaseInstance) {
@@ -9,7 +10,7 @@ export function getSupabase() {
     if (!url || !key) {
       throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY');
     }
-    supabaseInstance = createClient(url, key);
+    supabaseInstance = createClient<Database>(url, key);
   }
   return supabaseInstance;
 }

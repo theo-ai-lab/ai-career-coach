@@ -8,6 +8,11 @@ import { createClient } from "@supabase/supabase-js";
 
 import { randomUUID } from "crypto";
 
+import type {
+  Database,
+  DocumentInsert,
+} from "@/lib/supabase-types";
+
 function getSupabaseClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -16,7 +21,7 @@ function getSupabaseClient() {
       "Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY",
     );
   }
-  return createClient(url, key);
+  return createClient<Database>(url, key);
 }
 
 function getEmbeddings() {
@@ -74,25 +79,19 @@ export async function POST(req: NextRequest) {
 
     const resumeId: string = randomUUID();
 
-    const documentsToInsert = chunks.map((chunk, i) => ({
+    const documentsToInsert: DocumentInsert[] = chunks.map((chunk, i) => ({
       content: chunk.pageContent,
-
       embedding: vectors[i],
-
       metadata: {
         source: file.name,
-
         user_id: userId,
-
         resume_id: resumeId,
       },
     }));
 
     const { error } = await supabase
-
       .from("documents")
-
-      .insert(documentsToInsert as any);
+      .insert(documentsToInsert);
 
     if (error) throw error;
 

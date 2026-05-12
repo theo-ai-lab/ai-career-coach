@@ -1,9 +1,10 @@
 import { createClient } from '@supabase/supabase-js';
 import { OpenAIEmbeddings } from '@langchain/openai';
 import { ChatOpenAI } from '@langchain/openai';
+import type { Database, MatchDocumentsResult } from '@/lib/supabase-types';
 
 // Lazy initialization to avoid crashes if env vars are missing
-let supabaseInstance: ReturnType<typeof createClient> | null = null;
+let supabaseInstance: ReturnType<typeof createClient<Database>> | null = null;
 let embeddingsInstance: OpenAIEmbeddings | null = null;
 
 function getSupabaseClient() {
@@ -13,7 +14,7 @@ function getSupabaseClient() {
     if (!url || !key) {
       throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY environment variables');
     }
-    supabaseInstance = createClient(url, key);
+    supabaseInstance = createClient<Database>(url, key);
   }
   return supabaseInstance;
 }
@@ -39,11 +40,11 @@ export async function getResumeContextById(
   maxChunks = 12
 ): Promise<{
   chunks: string[];
-  rawDocs: any[];
+  rawDocs: MatchDocumentsResult[];
 }> {
   const supabase = getSupabaseClient();
   const embeddings = getEmbeddings();
-  
+
   // Use a neutral embedding query to get representative chunks
   const queryText = 'full resume overview';
   const queryEmbedding = await embeddings.embedQuery(queryText);
@@ -53,20 +54,20 @@ export async function getResumeContextById(
     match_count: maxChunks,
     p_resume_id: resumeId || null,
     p_user_id: null,
-  } as any);
+  });
 
   if (error) {
     throw new Error(`Failed to retrieve documents: ${error.message}`);
   }
 
-  const docs = (data as any[] | null) ?? [];
+  const docs = data ?? [];
 
   if (docs.length === 0) {
     throw new Error(`No documents found for resumeId: ${resumeId}`);
   }
 
   return {
-    chunks: docs.map((d: any) => d.content),
+    chunks: docs.map((d) => d.content),
     rawDocs: docs,
   };
 }

@@ -1,6 +1,10 @@
 import { createClient } from '@supabase/supabase-js';
 import { ChatOpenAI } from '@langchain/openai';
+import type { Database } from '@/lib/supabase-types';
 
+// Local exported shape used by callers. The DB column sentiment is TEXT
+// (no enum constraint), so reads can return any string or null. The
+// literal union from earlier versions was aspirational, not enforced.
 export interface SessionMemory {
   user_id: string;
   session_id: string;
@@ -8,12 +12,12 @@ export interface SessionMemory {
   key_decisions?: string[];
   topics_discussed?: string[];
   action_items?: string[];
-  sentiment?: 'positive' | 'neutral' | 'frustrated' | 'anxious';
+  sentiment?: string | null;
 }
 
 export async function getRecentSessions(userId: string, limit: number = 5): Promise<SessionMemory[]> {
   try {
-    const supabase = createClient(
+    const supabase = createClient<Database>(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     );
@@ -101,7 +105,7 @@ Return JSON:
         topics_discussed: parsed.topics_discussed || [],
         action_items: parsed.action_items || [],
         sentiment: parsed.sentiment || 'neutral',
-      } as any);
+      });
       
       if (insertError) {
         console.warn('[Memory] Failed to insert session memory:', insertError.message);

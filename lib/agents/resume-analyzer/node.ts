@@ -26,13 +26,13 @@ export async function analyzeResume(userId: string, resumeText: string) {
     match_count: 20,
     p_resume_id: null,
     p_user_id: userId,
-  } as any);
+  });
 
   if (error) {
     throw new Error(`Failed to retrieve documents: ${error.message}`);
   }
 
-  const docs = (data as any[] | null) ?? [];
+  const docs = data ?? [];
 
 
 
@@ -44,7 +44,7 @@ CONTEXT FROM RESUME (free-text upload):
 ${resumeText}
 
 CONTEXT FROM RAG (retrieved_chunks):
-${docs.map((d: any) => d.content).join("\n\n")}
+${docs.map((d) => d.content).join("\n\n")}
 
 SKILL & EDUCATION EXTRACTION RULES (CRITICAL):
 - You MUST extract **all skills** listed anywhere in the resume's explicit "Skills" section and include them verbatim in the appropriate arrays under skills. Do not paraphrase or drop items.

@@ -68,21 +68,21 @@ export async function POST(req: NextRequest) {
       match_count: 6,
       p_resume_id: resumeId,
       p_user_id: null,
-    } as any);
+    });
 
     if (error) {
       console.error("[Query] RPC error:", error);
       return NextResponse.json({ answer: "No relevant experience found." });
     }
 
-    const docs = (data as any[] | null) ?? [];
+    const docs = data ?? [];
 
     if (docs.length === 0) {
       console.log("[Query] No documents found for resumeId:", resumeId);
       return NextResponse.json({ answer: "No relevant experience found." });
     }
 
-    const context = docs.map((d: any) => d.content).join("\n\n");
+    const context = docs.map((d) => d.content).join("\n\n");
 
     // Build system prompt with memory context
     let systemPrompt = `You are an expert AI career coach helping candidates land their dream roles.
@@ -127,7 +127,7 @@ Do NOT say "According to my memory" or "My records show" - be natural.`;
       evalResult = await evaluateCoachingQuality({
         query,
         response: answer,
-        contexts: docs.map((d: any) => d.content),
+        contexts: docs.map((d) => d.content),
       });
 
       // Store eval in Supabase (non-blocking). Reuses outer `supabase`
@@ -138,11 +138,11 @@ Do NOT say "According to my memory" or "My records show" - be natural.`;
           response_id: `${currentSessionId}-query`,
           query,
           response: answer,
-          contexts: docs.map((d: any) => d.content),
+          contexts: docs.map((d) => d.content),
           scores: evalResult.scores,
           reasoning: evalResult.reasoning,
           overall_score: evalResult.overall,
-        } as any);
+        });
       } catch (dbError: any) {
         console.warn("[Eval] Failed to store eval:", dbError.message);
         // Don't fail if DB write fails
@@ -175,7 +175,7 @@ Do NOT say "According to my memory" or "My records show" - be natural.`;
 
     return NextResponse.json({
       answer,
-      sources: docs.map((d: any) => ({
+      sources: docs.map((d) => ({
         content: d.content,
         similarity: d.similarity,
       })),
