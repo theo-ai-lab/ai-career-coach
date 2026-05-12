@@ -3,7 +3,7 @@
 **Author:** Theo Bermudez
 **Date:** 2026-05-11
 **Status:** Decision template — thresholds preregistered; result values pending v3 Run #2
-**Evidence:** [v3 design doc](../../.././projects/Theo-ai-lab-ai-career-coach/theo-main-design-20260511-174636.md) · [reviewer dossier](.md) · [preregistration manifest](preregistration_manifest.json) (not yet authored — N=12 target) · [v3 results](results/) (not yet authored — N=12 target)
+**Evidence:** [reviewer dossier](.md) · [preregistration manifest](preregistration_manifest.json) (not yet authored — N=12 target) · [v3 results](results/) (not yet authored — N=12 target)
 
 ---
 

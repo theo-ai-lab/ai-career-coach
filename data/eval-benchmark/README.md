@@ -198,7 +198,7 @@ Every benchmark run produces `results/YYYY-MM-DD.json` with this shape:
 }
 ```
 
-The "per-persona jaggedness map" is the portfolio differentiator. It surfaces which model wins on which persona archetype — exactly the **jagged frontier** Karpathy named, now empirically measured on this domain.
+The "per-persona jaggedness map" surfaces which model wins on which persona archetype — the so-called **jagged frontier** of LLM capability, empirically measured on this domain instead of asserted.
 
 ---
 
