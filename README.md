@@ -1,10 +1,10 @@
 # AI Career Coach
 
-**Production AI career coaching platform powered by multi-agent orchestration, RAG, and LLM-based evaluation.**
+**AI career coaching prototype with multi-agent orchestration, resume-grounded RAG, and a 4-dimension LLM-as-judge eval rubric.**
 
 Built as a solo project to solve a real problem: career advice is either generic (ChatGPT) or expensive (human coaches). This platform delivers personalized, grounded career guidance using specialized AI agents that collaborate through a shared memory system.
 
-**57+ users · 900+ queries processed · 0.97 grounding accuracy · 0.94 personalization score**
+**57+ users · 900+ queries · 0.97 grounding · 0.94 personalization** — [4-dimension LLM-as-judge methodology](docs/EVAL_DESIGN.md).
 
 
 [LinkedIn](https://linkedin.com/in/theobermudez) · [Architecture](docs/ARCHITECTURE.md) · [Decision Log](docs/DECISION_LOG.md) · [Eval Framework](docs/EVAL_DESIGN.md)
@@ -22,13 +22,11 @@ Built as a solo project to solve a real problem: career advice is either generic
 
 ## About this repo
 
-Built solo over 5+ months (54+ commits, November 2025 → May 2026). Live deployment at the URL above. Three release cycles documented in git tags (v1.0, v2.0, v3.0). The eval framework, memory layer, and LangGraph orchestration are all in this public repo. Full architecture decisions in [docs/DECISION_LOG.md](docs/DECISION_LOG.md), evaluation methodology in [docs/EVAL_DESIGN.md](docs/EVAL_DESIGN.md).
+Built solo from November 2025 onward. Three architectural milestones live in the public commit log: working RAG with grounded retrieval (Nov 2025), LLM-as-judge evaluation and three-layer memory system (Dec 2025), and multi-agent LangGraph orchestration with HITL detection (Dec 2025). Full architecture decisions in [docs/DECISION_LOG.md](docs/DECISION_LOG.md), evaluation methodology in [docs/EVAL_DESIGN.md](docs/EVAL_DESIGN.md).
 
-This is a working prototype with a real user base. Production analytics (user counts, query volume, eval scores) live in PostHog and Supabase — those data sources are not committed to the repo. There is no auth, rate limiting, or end-to-end outcome tracking yet — those are planned, not built.
+This is a working prototype with a real user base. Analytics (query volume, eval scores) live in PostHog and Supabase — those data sources are not committed to the repo. There is no auth, rate limiting, or end-to-end outcome tracking yet — those are planned, not built.
 
 Known failure modes surfaced by the red-team (May 2026) — including a cross-conversation memory leak in `/api/query` traced to `userId = resumeId` aliasing — are documented in [`data/eval-benchmark/red-team-observations.md`](data/eval-benchmark/red-team-observations.md) and partially mitigated. The fix shipped behind a `skipMemory: true` request-body flag (see `app/api/query/route.ts` and the comment block at lines 28-33) so eval runs get clean stateless responses without changing default behavior for real users.
-
-Personal process rules live in `/` — postmortem template, peer-review checklist, learning-opportunity capture, plan/execute/document workflow notes. They shape how the project gets iterated, not what it does.
 
 ---
 
@@ -246,4 +244,4 @@ Error budgets govern releases: if any eval dimension drops below threshold, the 
 
 ---
 
-*Built by [Theo Bermudez](https://linkedin.com/in/theobermudez) · USC Marshall & Viterbi '24 · AI Career Coach is a production system, not a demo.*
+*Built by [Theo Bermudez](https://linkedin.com/in/theobermudez) · USC Marshall & Viterbi '24*
