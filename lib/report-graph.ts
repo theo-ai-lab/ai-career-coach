@@ -21,7 +21,7 @@
  * - Error handling: Graceful failures with detailed error messages
  */
 
-import { StateGraph, END } from '@langchain/langgraph';
+import { StateGraph, START, END, Annotation } from '@langchain/langgraph';
 import { getResumeContextById, getChatClient } from '@/lib/rag';
 import { evaluateCoachingQuality } from '@/lib/evals/coaching-quality';
 import { getSupabase } from '@/lib/supabase';
@@ -31,37 +31,45 @@ const log = process.env.NODE_ENV !== 'production'
   : () => {};
 
 /**
- * State interface for the report generation graph
+ * State definition for the report generation graph.
+ *
+ * Migrated 2026-05-12 from the older `new StateGraph({ channels: {...} })`
+ * pattern to LangGraph 1.0's `Annotation.Root`. This lets us drop the
+ * `: any` cast on the graph builder (audit L2-054). Each Annotation<T>()
+ * is a last-value channel holding `T | undefined`; nodes set them via
+ * Partial<State> returns.
  */
-interface ReportState {
-  // Inputs
-  resumeId: string;
-  targetCompany: string;
-  targetRole: string;
-  jobDescription?: string;
-  
+const ReportStateAnnotation = Annotation.Root({
+  // Inputs (required for entry)
+  resumeId: Annotation<string>(),
+  targetCompany: Annotation<string>(),
+  targetRole: Annotation<string>(),
+  jobDescription: Annotation<string | undefined>(),
+
   // Intermediate data
-  resumeContext?: string[];
-  resumeAnalysis?: any;
-  gapAnalysis?: any;
-  jobMatching?: any;
-  coverLetter?: string;
-  interviewPrep?: any;
-  strategyPlan?: any;
-  
+  resumeContext: Annotation<string[] | undefined>(),
+  resumeAnalysis: Annotation<any>(),
+  gapAnalysis: Annotation<any>(),
+  jobMatching: Annotation<any>(),
+  coverLetter: Annotation<string | undefined>(),
+  interviewPrep: Annotation<any>(),
+  strategyPlan: Annotation<any>(),
+
   // Evaluation results
-  resumeAnalysisEval?: any;
-  gapAnalysisEval?: any;
-  coverLetterEval?: any;
-  interviewPrepEval?: any;
-  strategyPlanEval?: any;
-  
+  resumeAnalysisEval: Annotation<any>(),
+  gapAnalysisEval: Annotation<any>(),
+  coverLetterEval: Annotation<any>(),
+  interviewPrepEval: Annotation<any>(),
+  strategyPlanEval: Annotation<any>(),
+
   // Final output
-  reportMarkdown?: string;
-  
+  reportMarkdown: Annotation<string | undefined>(),
+
   // Error tracking
-  error?: string;
-}
+  error: Annotation<string | undefined>(),
+});
+
+type ReportState = typeof ReportStateAnnotation.State;
 
 /**
  * Helper to safely parse JSON from LLM responses
@@ -657,70 +665,41 @@ function shouldRunJobMatching(state: ReportState): string {
 /**
  * Build and compile the graph
  */
-// `: any` here suppresses LangGraph strict-type errors against the older
-// `channels: { ... reducer ... }` initialization pattern. The audit
-// (L2-054) suggested removing the annotation, but doing so cleanly
-// requires migrating to the newer Annotation.Root API — out of scope for
-// this hygiene pass. Tracked as a follow-up in pre-ship-execution-log.md.
-const graph: any = new StateGraph<ReportState>({
-  channels: {
-    resumeId: null,
-    targetCompany: null,
-    targetRole: null,
-    jobDescription: null,
-    resumeContext: null,
-    resumeAnalysis: null,
-    gapAnalysis: null,
-    jobMatching: null,
-    coverLetter: null,
-    interviewPrep: null,
-    strategyPlan: null,
-    resumeAnalysisEval: null,
-    gapAnalysisEval: null,
-    coverLetterEval: null,
-    interviewPrepEval: null,
-    strategyPlanEval: null,
-    reportMarkdown: null,
-    error: null,
-  },
-});
-
-// Add nodes
-graph.addNode('fetchResumeContext', resumeContextNode);
-graph.addNode('analyzeResume', resumeAnalysisNode);
-graph.addNode('analyzeGaps', gapAnalysisNode);
-graph.addNode('matchJob', jobMatchingNode);
-graph.addNode('writeCoverLetter', coverLetterNode);
-graph.addNode('prepInterview', interviewPrepNode);
-graph.addNode('planStrategy', strategyPlanNode);
-graph.addNode('buildReport', compileReportNode);
-
-// Set entry point
-graph.setEntryPoint('fetchResumeContext');
-
-// Sequential edges
-graph.addEdge('fetchResumeContext', 'analyzeResume');
-graph.addEdge('analyzeResume', 'analyzeGaps');
-
-// Conditional edge: job matching only if jobDescription provided
-graph.addConditionalEdges('analyzeGaps', shouldRunJobMatching, {
-  matchJob: 'matchJob',
-  writeCoverLetter: 'writeCoverLetter',
-});
-
-// After job matching (if it ran), go to cover letter
-graph.addEdge('matchJob', 'writeCoverLetter');
-
-// After cover letter, run interview prep and strategy plan in parallel
-graph.addEdge('writeCoverLetter', 'prepInterview');
-graph.addEdge('writeCoverLetter', 'planStrategy');
-
-// Both parallel paths converge at buildReport
-graph.addEdge('prepInterview', 'buildReport');
-graph.addEdge('planStrategy', 'buildReport');
-
-// End
-graph.addEdge('buildReport', END);
+// Fluent chain — each .addNode / .addEdge / .addConditionalEdges call
+// returns a narrowed StateGraph type with the new node-name registered.
+// The previous imperative `graph.addNode(...)` form discarded that
+// narrowing and left `graph` typed against only the `__start__` node,
+// which is why the channels-based version needed `: any`.
+const graph = new StateGraph(ReportStateAnnotation)
+  .addNode('fetchResumeContext', resumeContextNode)
+  .addNode('analyzeResume', resumeAnalysisNode)
+  .addNode('analyzeGaps', gapAnalysisNode)
+  .addNode('matchJob', jobMatchingNode)
+  .addNode('writeCoverLetter', coverLetterNode)
+  .addNode('prepInterview', interviewPrepNode)
+  .addNode('planStrategy', strategyPlanNode)
+  .addNode('buildReport', compileReportNode)
+  // Entry point (LangGraph 1.0 prefers addEdge(START, ...) over
+  // setEntryPoint)
+  .addEdge(START, 'fetchResumeContext')
+  // Sequential edges
+  .addEdge('fetchResumeContext', 'analyzeResume')
+  .addEdge('analyzeResume', 'analyzeGaps')
+  // Conditional edge: job matching only if jobDescription provided
+  .addConditionalEdges('analyzeGaps', shouldRunJobMatching, {
+    matchJob: 'matchJob',
+    writeCoverLetter: 'writeCoverLetter',
+  })
+  // After job matching (if it ran), go to cover letter
+  .addEdge('matchJob', 'writeCoverLetter')
+  // After cover letter, run interview prep and strategy plan in parallel
+  .addEdge('writeCoverLetter', 'prepInterview')
+  .addEdge('writeCoverLetter', 'planStrategy')
+  // Both parallel paths converge at buildReport
+  .addEdge('prepInterview', 'buildReport')
+  .addEdge('planStrategy', 'buildReport')
+  // End
+  .addEdge('buildReport', END);
 
 // Compile the graph
 export const reportGraph = graph.compile();
