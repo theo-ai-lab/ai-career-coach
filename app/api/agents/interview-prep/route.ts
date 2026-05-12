@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
       resumeAnalysis,
       gapAnalysis,
       jobDescription,
-      company || "OpenAI"
+      company || "OpenAI",
     );
 
     // Detect high-stakes content (e.g., negotiation tactics, salary discussions)
@@ -25,9 +25,7 @@ export async function POST(req: NextRequest) {
     console.error("Interview prep agent error:", error);
     return Response.json(
       { error: error?.message ?? "Unknown error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
-
-

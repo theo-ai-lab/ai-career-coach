@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
     const letter = await writeCoverLetter(
       resumeAnalysis,
       gapAnalysis,
-      company || "OpenAI"
+      company || "OpenAI",
     );
 
     // Detect high-stakes content (e.g., salary expectations)
@@ -23,9 +23,7 @@ export async function POST(req: NextRequest) {
     console.error("Cover letter agent error:", error);
     return Response.json(
       { error: error?.message ?? "Unknown error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
-
-

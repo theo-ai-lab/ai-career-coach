@@ -1,17 +1,17 @@
-import { NextRequest } from 'next/server';
-import { getSupabase } from '@/lib/supabase';
+import { NextRequest } from "next/server";
+import { getSupabase } from "@/lib/supabase";
 
-export const runtime = 'nodejs';
+export const runtime = "nodejs";
 
 export async function GET(req: NextRequest) {
   try {
     const supabase = getSupabase();
-    
+
     // Fetch last 50 evals
     const { data: evals, error: evalsError } = await supabase
-      .from('evals')
-      .select('*')
-      .order('created_at', { ascending: false })
+      .from("evals")
+      .select("*")
+      .order("created_at", { ascending: false })
       .limit(50);
 
     if (evalsError) {
@@ -34,23 +34,32 @@ export async function GET(req: NextRequest) {
         }),
         {
           status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        }
+          headers: { "Content-Type": "application/json" },
+        },
       );
     }
 
     const scores = evals.map((e: any) => e.scores);
     const stats = {
       avgActionability:
-        scores.reduce((sum: number, s: any) => sum + (s?.actionability || 0), 0) / evals.length,
+        scores.reduce(
+          (sum: number, s: any) => sum + (s?.actionability || 0),
+          0,
+        ) / evals.length,
       avgPersonalization:
-        scores.reduce((sum: number, s: any) => sum + (s?.personalization || 0), 0) / evals.length,
+        scores.reduce(
+          (sum: number, s: any) => sum + (s?.personalization || 0),
+          0,
+        ) / evals.length,
       avgHonesty:
-        scores.reduce((sum: number, s: any) => sum + (s?.honesty || 0), 0) / evals.length,
+        scores.reduce((sum: number, s: any) => sum + (s?.honesty || 0), 0) /
+        evals.length,
       avgGrounding:
-        scores.reduce((sum: number, s: any) => sum + (s?.grounding || 0), 0) / evals.length,
+        scores.reduce((sum: number, s: any) => sum + (s?.grounding || 0), 0) /
+        evals.length,
       avgOverall:
-        evals.reduce((sum: number, e: any) => sum + (e.overall_score || 0), 0) / evals.length,
+        evals.reduce((sum: number, e: any) => sum + (e.overall_score || 0), 0) /
+        evals.length,
       totalEvals: evals.length,
     };
 
@@ -71,15 +80,14 @@ export async function GET(req: NextRequest) {
       }),
       {
         status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      }
+        headers: { "Content-Type": "application/json" },
+      },
     );
   } catch (error: any) {
-    console.error('Admin evals fetch error:', error);
+    console.error("Admin evals fetch error:", error);
     return new Response(
-      JSON.stringify({ error: error.message || 'Failed to fetch evals' }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
+      JSON.stringify({ error: error.message || "Failed to fetch evals" }),
+      { status: 500, headers: { "Content-Type": "application/json" } },
     );
   }
 }
-

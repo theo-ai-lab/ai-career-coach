@@ -222,6 +222,7 @@ async function runQuery(query, resumeId) {
 // Main.
 // ---------------------------------------------------------------------------
 async function main() {
+  const runStartedAt = new Date().toISOString();
   console.log(`[red-team] base URL: ${BASE_URL}`);
   console.log(`[red-team] user_id: ${USER_ID}`);
 
@@ -312,7 +313,7 @@ async function main() {
   const out = {
     run_id: USER_ID,
     base_url: BASE_URL,
-    started_at: new Date(Date.now() - attempts.reduce((s, a) => s + (a.elapsed_ms || 0), 0)).toISOString(),
+    started_at: runStartedAt,
     finished_at: new Date().toISOString(),
     persona: promptsDoc.persona,
     upload: {

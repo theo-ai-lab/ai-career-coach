@@ -52,7 +52,7 @@ export function summarizeSessionAsync(
       );
       
       const llm = new ChatOpenAI({
-        modelName: 'gpt-4o-mini',
+        model: 'gpt-4o-mini',
         temperature: 0.3,
       });
       

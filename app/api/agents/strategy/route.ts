@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
     const plan = await generateStrategy(
       resumeAnalysis,
       gapAnalysis,
-      targetCompany || "OpenAI"
+      targetCompany || "OpenAI",
     );
 
     // Detect high-stakes content (e.g., quitting current job, major career changes)
@@ -23,9 +23,7 @@ export async function POST(req: NextRequest) {
     console.error("Strategy advisor agent error:", error);
     return Response.json(
       { error: error?.message ?? "Unknown error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
-
-

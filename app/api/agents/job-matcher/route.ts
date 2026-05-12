@@ -18,9 +18,7 @@ function parseJsonResponse(content: string): any {
   // Remove markdown code blocks if present
   let cleaned = content.trim();
   if (cleaned.startsWith("```")) {
-    cleaned = cleaned
-      .replace(/^```(?:json)?\s*/i, "")
-      .replace(/```\s*$/, "");
+    cleaned = cleaned.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/, "");
   }
 
   // Try to extract JSON object from content
@@ -41,14 +39,14 @@ export async function POST(req: NextRequest) {
     if (!resumeId) {
       return Response.json(
         { error: "Missing required field: resumeId" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     if (!jobDescription || !jobDescription.trim()) {
       return Response.json(
         { error: "Missing required field: jobDescription" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -64,7 +62,7 @@ export async function POST(req: NextRequest) {
             error:
               "No resume chunks found for the provided resumeId. Please upload a resume again.",
           },
-          { status: 400 }
+          { status: 400 },
         );
       }
       throw error;
@@ -122,7 +120,7 @@ Additional formatting rules:
             error?.message ??
             "Failed to parse job matching results from model response.",
         },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -131,9 +129,7 @@ Additional formatting rules:
     console.error("Job matcher agent error:", error);
     return Response.json(
       { error: error?.message ?? "Unknown error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
-
-

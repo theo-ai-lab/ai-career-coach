@@ -18,7 +18,7 @@ function getSupabaseClient() {
   return supabaseInstance;
 }
 
-function getEmbeddings() {
+export function getEmbeddings() {
   if (!embeddingsInstance) {
     embeddingsInstance = new OpenAIEmbeddings({
       model: 'text-embedding-3-small',

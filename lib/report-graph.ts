@@ -657,6 +657,11 @@ function shouldRunJobMatching(state: ReportState): string {
 /**
  * Build and compile the graph
  */
+// `: any` here suppresses LangGraph strict-type errors against the older
+// `channels: { ... reducer ... }` initialization pattern. The audit
+// (L2-054) suggested removing the annotation, but doing so cleanly
+// requires migrating to the newer Annotation.Root API — out of scope for
+// this hygiene pass. Tracked as a follow-up in pre-ship-execution-log.md.
 const graph: any = new StateGraph<ReportState>({
   channels: {
     resumeId: null,
@@ -718,6 +723,6 @@ graph.addEdge('planStrategy', 'buildReport');
 graph.addEdge('buildReport', END);
 
 // Compile the graph
-export const reportGraph: any = graph.compile();
+export const reportGraph = graph.compile();
 
 

@@ -1,8 +1,11 @@
-import { NextRequest } from 'next/server';
-import { evaluateCoachingQuality, CoachingQualityInput } from '@/lib/evals/coaching-quality';
-import { getSupabase } from '@/lib/supabase';
+import { NextRequest } from "next/server";
+import {
+  evaluateCoachingQuality,
+  CoachingQualityInput,
+} from "@/lib/evals/coaching-quality";
+import { getSupabase } from "@/lib/supabase";
 
-export const runtime = 'nodejs';
+export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
   try {
@@ -12,8 +15,10 @@ export async function POST(req: NextRequest) {
     // Validate required fields
     if (!query || !response || !Array.isArray(contexts)) {
       return new Response(
-        JSON.stringify({ error: 'Missing required fields: query, response, contexts' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
+        JSON.stringify({
+          error: "Missing required fields: query, response, contexts",
+        }),
+        { status: 400, headers: { "Content-Type": "application/json" } },
       );
     }
 
@@ -26,20 +31,18 @@ export async function POST(req: NextRequest) {
 
     // Store in Supabase
     const supabase = getSupabase();
-    const { error: dbError } = await supabase
-      .from('evals')
-      .insert({
-        response_id: responseId || null,
-        query,
-        response,
-        contexts,
-        scores: evalResult.scores,
-        reasoning: evalResult.reasoning,
-        overall_score: evalResult.overall,
-      } as any);
+    const { error: dbError } = await supabase.from("evals").insert({
+      response_id: responseId || null,
+      query,
+      response,
+      contexts,
+      scores: evalResult.scores,
+      reasoning: evalResult.reasoning,
+      overall_score: evalResult.overall,
+    } as any);
 
     if (dbError) {
-      console.error('Failed to store eval in Supabase:', dbError);
+      console.error("Failed to store eval in Supabase:", dbError);
       // Don't fail the request if DB write fails, just log it
     }
 
@@ -50,15 +53,16 @@ export async function POST(req: NextRequest) {
       }),
       {
         status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      }
+        headers: { "Content-Type": "application/json" },
+      },
     );
   } catch (error: any) {
-    console.error('Coaching quality eval error:', error);
+    console.error("Coaching quality eval error:", error);
     return new Response(
-      JSON.stringify({ error: error.message || 'Failed to evaluate coaching quality' }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
+      JSON.stringify({
+        error: error.message || "Failed to evaluate coaching quality",
+      }),
+      { status: 500, headers: { "Content-Type": "application/json" } },
     );
   }
 }
-
