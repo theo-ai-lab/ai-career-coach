@@ -14,7 +14,7 @@ Canonical inventory of eval case coverage across the 4-dimension × 3-case-type 
 
 Files on disk:
 - `cases/normal/01-actionability-grad.json` — actionability dimension
-- `cases/normal/02-personalization-pm-pivot.json` — personalization dimension
+- `cases/normal/02-personalization-career-switcher.json` — personalization dimension
 
 The `adversarial/` directory exists but is empty. The `edge/` directory has not been created yet.
 

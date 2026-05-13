@@ -1,0 +1,7 @@
+{
+  "id": "02-personalization-career-switcher",
+  "persona_id": "02",
+  "query": "Walk me through my technical experience and how it translates to the target role. Be specific about which projects and skills matter most.",
+  "expected_dimension_focus": "personalization",
+  "rationale": "Tests H2: a strong response should reference specific projects (patient-onboarding flow at the health tech startup, SMS reminder system at the ed-tech nonprofit, the 18 user interviews) and concrete skills (integration testing, conflict resolution across stakeholders, instructional design) — none of which a generic career-switcher template would surface. A weak response gives generic 'as a teacher you have transferable skills' advice that ignores the resume's unique signal."
+}
