@@ -1,6 +1,5 @@
 # PM Decision Memo: Production Model Migration to GPT-5.4-mini + GPT-5.5
 
-**Author:** Theo Bermudez
 **Date:** 2026-05-11
 **Status:** Decision template — thresholds preregistered; result values pending v3 Run #2
 **Evidence:** [preregistration manifest](preregistration_manifest.json) (not yet authored — N=12 target) · [v3 results](results/) (not yet authored — N=12 target)
