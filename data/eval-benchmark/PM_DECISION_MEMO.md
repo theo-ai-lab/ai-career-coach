@@ -3,7 +3,7 @@
 **Author:** Theo Bermudez
 **Date:** 2026-05-11
 **Status:** Decision template — thresholds preregistered; result values pending v3 Run #2
-**Evidence:** [reviewer dossier](.md) · [preregistration manifest](preregistration_manifest.json) (not yet authored — N=12 target) · [v3 results](results/) (not yet authored — N=12 target)
+**Evidence:** [preregistration manifest](preregistration_manifest.json) (not yet authored — N=12 target) · [v3 results](results/) (not yet authored — N=12 target)
 
 ---
 
@@ -13,7 +13,7 @@
 
 **Failure mode this memo decides on:** the production stack runs on gpt-4o-mini (May 2024) and gpt-4o (Jul 2024) — ~22-month-stale models. v3 smoke (N=2) flagged Honesty = 4/5 (one-point deduction each case), suggesting model-default under-hedging. The question this memo answers: **does migrating to gpt-5.4-mini + gpt-5.5 make user-facing Honesty better, worse, or neither?**
 
-**Why it matters:** Career advice has real consequences. A model that fabricates credentials the user doesn't have, or hedges with false confidence on weakly-grounded claims, sends users into job searches with bad data. Anthropic's Usage Policy classifies this product domain as High-Risk: Employment requiring human-in-the-loop and disclosure (see [reviewer dossier Stage 5.4](.md)); v3 preregisters `adv-credentials-gap` and `adv-uncomfortable-truth` cases specifically to measure model behavior against this bright line.
+**Why it matters:** Career advice has real consequences. A model that fabricates credentials the user doesn't have, or hedges with false confidence on weakly-grounded claims, sends users into job searches with bad data. Industry safety policy frameworks classify employment-adjacent advice (resume screening, employment determinations) as high-risk, requiring human-in-the-loop review and disclosure; v3 preregisters `adv-credentials-gap` and `adv-uncomfortable-truth` cases specifically to measure model behavior against this bright line.
 
 ## Decision
 
@@ -29,7 +29,7 @@ Direction of effect is the decision driver. CI bounds are reported for transpare
 
 ## Eval evidence
 
-The v3 benchmark (12 preregistered cases, 6 adversarial, k=3 judge passes, `claude-sonnet-4-6` cross-vendor judge with response-blinding and randomized ordering) measures adversarial Honesty as a direction-of-effect signal — not a hypothesis test. Bootstrap CI on case-level deltas (10K resamples, seed=42, percentile method) reports uncertainty bounds for transparency, framed as descriptive/exploratory per Cat Wu's "small eval sets that quantify progress" framing (Lenny's Podcast, Apr 23 2026, chapter *"Why building evals is underappreciated"*). I'm using this evidence to decide a rollout gate, not to publish a research finding. Per the [reviewer dossier](.md) Stage 6.3: small-N preregistered evals are appropriate for product decisions and demonstrate calibrated communication of uncertainty — which is exactly what Anthropic's Constitution asks of the model itself.
+The v3 benchmark (12 preregistered cases, 6 adversarial, k=3 judge passes, `claude-sonnet-4-6` cross-vendor judge with response-blinding and randomized ordering) measures adversarial Honesty as a direction-of-effect signal — not a hypothesis test. Bootstrap CI on case-level deltas (10K resamples, seed=42, percentile method) reports uncertainty bounds for transparency, framed as descriptive/exploratory in line with industry practice for small eval sets that quantify product-level progress without overclaiming. I'm using this evidence to decide a rollout gate, not to publish a research finding. Small-N preregistered evals are appropriate for product decisions and demonstrate calibrated communication of uncertainty — which aligns with calibrated-uncertainty norms in the LLM evaluation literature.
 
 ## Trade-offs (named explicitly)
 
@@ -51,4 +51,4 @@ The v3 benchmark (12 preregistered cases, 6 adversarial, k=3 judge passes, `clau
 
 *Will add via separate commit once real product usage produces an unanticipated observation. Do not fabricate placeholder content.*
 
-*(Per reviewer dossier Stage 6.4 Miss #2: this section is the single strongest evidence of taste vs checklist execution. An empty TODO marker is better than fabricated content; the section's value is signaling to a reviewer that the author waited for real observation rather than backfilling.)*
+*(An empty TODO marker is better than fabricated content; the section's value is signaling that the author waited for real observation rather than backfilling.)*
