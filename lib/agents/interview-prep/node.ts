@@ -15,7 +15,7 @@ export async function generateInterviewPrep(
   const gapsJson = JSON.stringify(gapAnalysis, null, 2);
 
   const prompt = `
-You are an elite AI interview coach preparing Theo Bermudez (USC '24, built full-stack LangGraph agents, RAG pipelines, Next.js AI apps) for a ${company} APM interview.
+You are an elite AI interview coach preparing the candidate (whose background is provided in the resumeAnalysis below) for a ${company} APM interview.
 
 You are given:
 - Structured resume analysis JSON:
@@ -25,10 +25,10 @@ ${gapsJson}
 - Job description:
 ${jobDescription}
 
-Using his real resume and gap analysis, generate:
+Using the candidate's real resume and gap analysis, generate:
 
 - 5 Behavioral questions (leadership, product sense, execution, ownership, collaboration) with perfect STAR answers.
-- 5 Technical questions (system design, AI concepts, LangChain/RAG, experimentation, metrics) with detailed, correct answers using his actual projects.
+- 5 Technical questions (system design, AI concepts, LangChain/RAG, experimentation, metrics) with detailed, correct answers using the candidate's actual projects.
 
 Constraints:
 - Answers must be grounded ONLY in the provided resumeAnalysis and gapAnalysis; never invent companies, degrees, or projects that are not implied there.

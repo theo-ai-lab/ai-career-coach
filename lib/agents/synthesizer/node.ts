@@ -19,7 +19,7 @@ export function synthesizeCareerReport({
 }) {
   return {
     generatedAt: new Date().toISOString(),
-    candidate: "Theo Bermudez",
+    candidate: "Candidate",
     targetCompany: coverLetter.company,
     resumeAnalysis,
     gapAnalysis,

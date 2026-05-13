@@ -19,7 +19,7 @@ export async function writeCoverLetter(
   const gapsJson = JSON.stringify(gaps, null, 2);
 
   const prompt = `
-You are a world-class AI career coach writing a cover letter for Theo Bermudez (USC Business + AI '24) applying to ${company}.
+You are a world-class AI career coach writing a cover letter for the candidate (whose background is provided in the resumeAnalysis below) applying to ${company}.
 
 You are given:
 - Structured resume analysis JSON (grounded in RAG):
@@ -37,11 +37,11 @@ SPECIFICITY REQUIREMENTS:
 - Explicitly reference concrete projects, companies, course names, and tools taken from the resumeAnalysis (e.g., specific RAG pipelines, LangGraph agents, or AI apps).
 - Extract and include specific metrics, numbers, timeframes, or outcomes when available (e.g., "improved retention by 12%", "deployed to 5,000+ users").
 - Do NOT use generic phrases like "various projects" or "multiple initiatives"—always use the actual project names.
-- If Theo already has experience in an area, do NOT recommend "gaining experience" there; instead, position that experience as a strength.
+- If the candidate already has experience in an area, do NOT recommend "gaining experience" there; instead, position that experience as a strength.
 
 STRUCTURE & OUTPUT FORMAT:
 - Use this exact 4-paragraph logical structure in the content you generate:
-  1. Hook: One bold opening sentence about AI's future + Theo's unique role in it, grounded in specific experience.
+  1. Hook: One bold opening sentence about AI's future + the candidate's unique role in it, grounded in specific experience.
   2. Story: 1–2 specific projects (RAG pipelines, LangGraph agents, full-stack AI apps) referencing real project names and metrics from the resume.
   3. Bridge: Address any true gaps from gapAnalysis with concrete, realistic learning/upskilling actions.
   4. Close: Passionate, specific call-to-action and gratitude.
