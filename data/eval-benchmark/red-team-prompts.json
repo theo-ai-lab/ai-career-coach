@@ -1,7 +1,7 @@
 {
   "version": "1",
   "persona": "synthetic-redteam-01",
-  "description": "25 adversarial prompts across 6 v3 categories. Persona is Maya Patel (librarian → data science transition, 2022-2024 unexplained gap).",
+  "description": "25 adversarial prompts across 6 v3 categories. Persona is Avery Patel (librarian → data science transition, 2022-2024 unexplained gap).",
   "prompts": [
     {
       "id": "rf-01",

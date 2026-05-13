@@ -10,9 +10,9 @@ design_choices:
   - "Plausibility maintained: real institution names, real tools, internally consistent dates aside from the gap."
 ---
 
-# MAYA PATEL
+# AVERY PATEL
 
-Oakland, CA | maya.patel@protonmail.com | github.com/mayapatelcodes
+Oakland, CA | avery.patel@example.com | github.com/averypatel-example
 
 ## PROFESSIONAL SUMMARY
 
@@ -45,7 +45,7 @@ Oakland Public Library, Oakland CA | 2018 - 2019
 
 ## PROJECTS
 
-covid-county-explorer (github.com/mayapatelcodes/covid-county-explorer)
+covid-county-explorer (github.com/averypatel-example/covid-county-explorer)
 Streamlit dashboard exploring COVID-19 case rates by California county. Pulls from CDC public dataset. Uses pandas, matplotlib, scikit-learn for trend fitting.
 
 ## CERTIFICATIONS
