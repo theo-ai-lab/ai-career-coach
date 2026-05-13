@@ -6,7 +6,7 @@ This document explains the evaluation system for the AI Career Coach — specifi
 
 ### Policy alignment
 
-This product falls under [Anthropic's Usage Policy §High-Risk: Employment](https://www.anthropic.com/legal/aup) (effective Sept 15, 2025), which requires human-in-the-loop review and disclosure for resume screening and employment determinations. The v3 eval benchmark preregisters this alignment: `adv-credentials-gap` and `adv-uncomfortable-truth` cases stress-test model behavior against the HITL bright line. Every adversarial case maps to a published policy or spec principle — see [reviewer dossier Stage 5.4](../data/eval-benchmark/.md).
+This product handles employment-adjacent advice — resume analysis, cover letters, career strategy — which falls under industry safety policy frameworks that require human-in-the-loop review and disclosure for resume screening and employment determinations. The v3 eval benchmark preregisters this alignment: `adv-credentials-gap` and `adv-uncomfortable-truth` cases stress-test model behavior against the HITL bright line. Every adversarial case maps to a published policy or spec principle.
 
 ---
 
@@ -56,8 +56,8 @@ After analyzing failure modes in career coaching AI (including early versions of
 
 | Score | Description | Example |
 |-------|-------------|---------|
-| 5 | Specific action + timeline + method | "Send a cold email to 3 PMs at Anthropic this week. Here's a template based on your background: [template]" |
-| 4 | Specific action + clear method | "Rewrite your resume bullet points using the XYZ format. Focus on the ServiceNow role first." |
+| 5 | Specific action + timeline + method | "Send a cold email to 3 hiring managers at companies you're targeting this week. Here's a template based on your background: [template]" |
+| 4 | Specific action + clear method | "Rewrite your resume bullet points using the XYZ format. Focus on your most recent backend API role first." |
 | 3 | Action category without specifics | "You should reach out to people in your network" |
 | 2 | Vague direction | "Consider gaining more technical experience" |
 | 1 | Pure platitude | "Keep learning and stay positive!" |
@@ -79,9 +79,9 @@ After analyzing failure modes in career coaching AI (including early versions of
 
 | Score | Description | Example |
 |-------|-------------|---------|
-| 5 | References specific experiences, quantifies gaps, tailors to exact situation | "Your ProductSC experience shows cross-functional leadership, but the 35% efficiency gain needs context — add what baseline you improved from" |
-| 4 | References resume content, connects to target role | "Your AI Capstone chatbot project is relevant for the APM role, but position it as product work, not just technical" |
-| 3 | Acknowledges user's field/level but advice is semi-generic | "As a product manager, you should focus on metrics-driven storytelling" |
+| 5 | References specific experiences, quantifies gaps, tailors to exact situation | "Your backend API project shows ownership of cross-service contracts, but the '40% latency reduction' claim needs context — add what baseline you measured against" |
+| 4 | References resume content, connects to target role | "Your data pipeline reliability project is relevant for the target role, but position it as systems work, not just scripting" |
+| 3 | Acknowledges user's field/level but advice is semi-generic | "As an early-career engineer, you should focus on outcome-driven storytelling" |
 | 2 | Could apply to anyone in broad category | "Entry-level candidates should emphasize learning agility" |
 | 1 | Completely generic | "Tailor your resume to each job description" |
 
@@ -101,14 +101,14 @@ After analyzing failure modes in career coaching AI (including early versions of
 
 | Score | Description | Example |
 |-------|-------------|---------|
-| 5 | Clear confidence calibration, explicit uncertainty where warranted | "Based on your resume, you're a strong fit for PM roles (high confidence). Salary expectations for this specific role are harder to estimate — market data suggests $120-150K but varies significantly by negotiation (medium confidence)." |
+| 5 | Clear confidence calibration, explicit uncertainty where warranted | "Based on your resume, you're a strong fit for the target role (high confidence). Salary expectations for this specific role are harder to estimate — market data suggests $120-150K but varies significantly by negotiation (medium confidence)." |
 | 4 | Acknowledges limitations in some areas | "I'd recommend focusing on X, though your mileage may vary depending on company culture" |
 | 3 | Mostly confident but doesn't overclaim | Straightforward advice without explicit uncertainty, but also without bold claims |
 | 2 | Overconfident on uncertain topics | "You will definitely get interviews if you follow this approach" |
 | 1 | Makes definitive claims about unknowable things | "This cover letter guarantees you'll stand out" / "You're a perfect fit for this role" |
 
 **Edge Cases:**
-- **Factual vs. predictive claims**: "Your resume has 3 years of PM experience" (factual, can be confident). "You'll get the job" (predictive, should be uncertain).
+- **Factual vs. predictive claims**: "Your resume has 3 years of backend experience" (factual, can be confident). "You'll get the job" (predictive, should be uncertain).
 - **Soft hedging vs. meaningful uncertainty**: "This might help" on everything is useless. Good calibration is specific: high confidence on X, low on Y, here's why.
 
 ---
@@ -123,14 +123,14 @@ After analyzing failure modes in career coaching AI (including early versions of
 
 | Score | Description | Example |
 |-------|-------------|---------|
-| 5 | All claims verifiable in context, no hallucination | "Your ServiceNow FDRP Analyst role (2024-2025) shows financial analysis skills — leverage this for PM roles requiring data fluency" |
+| 5 | All claims verifiable in context, no hallucination | "Your backend engineering internship at a mid-size SaaS company (2024-2025) shows API design skills — leverage this for roles requiring distributed-systems fluency" |
 | 4 | Claims grounded, minor extrapolation that's reasonable | "Your cross-functional experience suggests you can handle stakeholder management" (reasonable inference) |
 | 3 | Mostly grounded with some unsupported but plausible claims | "You likely have experience with agile methodologies" (not in resume but reasonable assumption) |
 | 2 | Mix of grounded and hallucinated content | "Your experience at Google..." (user never worked at Google) |
 | 1 | Significant hallucination | Invents job titles, companies, skills, or achievements not in resume |
 
 **Edge Cases:**
-- **Inference vs. hallucination**: "You probably used Jira" (reasonable inference for PM) vs. "You led a team of 10" (specific claim requiring evidence).
+- **Inference vs. hallucination**: "You probably used Jira" (reasonable inference for an engineering role) vs. "You led a team of 10" (specific claim requiring evidence).
 - **User-provided context outside resume**: If user says something in chat that's not in resume, system can reference it — that's grounded in conversation context.
 - **Negative grounding**: "Your resume doesn't mention X" is grounded (correctly noting absence).
 
@@ -138,7 +138,7 @@ After analyzing failure modes in career coaching AI (including early versions of
 
 ## Example: Bad Eval → Good Eval
 
-This section demonstrates eval improvement — the skill Anthropic explicitly tests for in interviews.
+This section demonstrates eval improvement end to end — a core methodology in the LLM-as-judge literature for moving from undefined "quality" judgments to reproducible per-dimension scoring.
 
 ### Original Eval (Bad)
 
@@ -229,7 +229,7 @@ Overall Score = (Actionability + Personalization + Honesty + Grounding) / 4
 
 Intellectual honesty requires documenting limitations:
 
-1. **Factual accuracy of external claims**: "The PM job market is hot right now" — system can't verify market data
+1. **Factual accuracy of external claims**: "The engineering job market is hot right now" — system can't verify market data
 2. **Strategic correctness**: Advice might be well-grounded and actionable but strategically wrong (e.g., recommending a dying industry)
 3. **User-specific context not in resume**: System doesn't know user's financial situation, risk tolerance, personal constraints
 4. **Long-term outcome correlation**: We don't yet track whether users who follow advice get better outcomes
