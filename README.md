@@ -1,6 +1,6 @@
 # AI Career Coach
 
-**AI career coaching prototype with multi-agent orchestration, resume-grounded RAG, and a 4-dimension LLM-as-judge eval rubric.**
+**Production AI career coaching platform with multi-agent orchestration, resume-grounded RAG, and a 4-dimension LLM-as-judge eval rubric.**
 
 Built as a solo project to solve a real problem: career advice is either generic (ChatGPT) or expensive (human coaches). This platform delivers personalized, grounded career guidance using specialized AI agents that collaborate through a shared memory system.
 
