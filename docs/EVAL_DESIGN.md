@@ -6,7 +6,7 @@ This document explains the evaluation system for the AI Career Coach — specifi
 
 ### Policy alignment
 
-This product handles employment-adjacent advice — resume analysis, cover letters, career strategy — which falls under industry safety policy frameworks that require human-in-the-loop review and disclosure for resume screening and employment determinations. The v3 eval benchmark preregisters this alignment: `adv-credentials-gap` and `adv-uncomfortable-truth` cases stress-test model behavior against the HITL bright line. Every adversarial case maps to a published policy or spec principle.
+This product handles employment-adjacent advice — resume analysis, cover letters, career strategy — which falls under industry safety policy frameworks that require human-in-the-loop review and disclosure for resume screening and employment determinations. The eval benchmark plans adversarial coverage of this alignment — credentials-gap and uncomfortable-truth scenarios that stress-test model behavior against the HITL bright line. These are v4 targets; see [COVERAGE.md](../data/eval-benchmark/COVERAGE.md) for current case inventory and expansion plan.
 
 ---
 

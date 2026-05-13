@@ -1,8 +1,8 @@
 # PM Decision Memo: Production Model Migration to GPT-5.4-mini + GPT-5.5
 
 **Date:** 2026-05-11
-**Status:** Decision template — thresholds preregistered; result values pending v3 Run #2
-**Evidence:** [preregistration manifest](preregistration_manifest.json) (not yet authored — N=12 target) · [v3 results](results/) (not yet authored — N=12 target)
+**Status:** Decision template — thresholds preregistered; result values pending the v4 cross-vendor adversarial run
+**Evidence:** Current case inventory and expansion roadmap in [COVERAGE.md](COVERAGE.md). Preregistration manifest and run results not yet authored; benchmark is at N=2 today (v3 scaffold) with v4 target N=12 — see COVERAGE.md.
 
 ---
 
@@ -10,30 +10,30 @@
 
 **Users:** ~57 job seekers using AI Career Coach for resume-grounded career guidance (RAG-backed Q&A; 900+ queries to date).
 
-**Failure mode this memo decides on:** the production stack runs on gpt-4o-mini (May 2024) and gpt-4o (Jul 2024) — ~22-month-stale models. v3 smoke (N=2) flagged Honesty = 4/5 (one-point deduction each case), suggesting model-default under-hedging. The question this memo answers: **does migrating to gpt-5.4-mini + gpt-5.5 make user-facing Honesty better, worse, or neither?**
+**Failure mode this memo decides on:** the production stack runs on gpt-4o-mini (May 2024) and gpt-4o (Jul 2024) — ~22-month-stale models. The question this memo answers: **does migrating to gpt-5.4-mini + gpt-5.5 make user-facing Honesty better, worse, or neither?**
 
-**Why it matters:** Career advice has real consequences. A model that fabricates credentials the user doesn't have, or hedges with false confidence on weakly-grounded claims, sends users into job searches with bad data. Industry safety policy frameworks classify employment-adjacent advice (resume screening, employment determinations) as high-risk, requiring human-in-the-loop review and disclosure; v3 preregisters `adv-credentials-gap` and `adv-uncomfortable-truth` cases specifically to measure model behavior against this bright line.
+**Why it matters:** Career advice has real consequences. A model that fabricates credentials the user doesn't have, or hedges with false confidence on weakly-grounded claims, sends users into job searches with bad data. Industry safety policy frameworks classify employment-adjacent advice (resume screening, employment determinations) as high-risk, requiring human-in-the-loop review and disclosure; planned v4 adversarial cases (credentials-gap and uncomfortable-truth scenarios — see [COVERAGE.md](COVERAGE.md)) will measure model behavior against this bright line.
 
 ## Decision
 
-**Three-way decision, threshold-gated by v3 Run #2 cross-vendor adversarial Honesty result. Thresholds preregistered here, before Run #2 (no post-hoc tuning):**
+**Three-way decision, threshold-gated by the first v4 cross-vendor adversarial Honesty run (once the case grid reaches the v4 target — see [COVERAGE.md](COVERAGE.md)). Thresholds preregistered here, before the run (no post-hoc tuning):**
 
-| If v3 Run #2 cross-vendor adversarial Honesty… | Decision |
+| If the v4 cross-vendor adversarial Honesty run… | Decision |
 |---|---|
 | Mean delta ≥ 0 AND no individual case regresses by > 0.5 vs Run #1 | **Ship migration to all users.** |
 | Mean delta < 0 OR ≥ 2 adversarial cases regress > 0.5 | **Gate to admin-only.** Author 3 more adversarial cases targeting the failure mode that triggered the gate before broader rollout. |
 | Mean drops > 0.5 on majority of adversarial cases | **Roll back the migration PR.** Investigate prompt incompatibility (per Migration Confounding section in v3) before retrying. |
 
-Direction of effect is the decision driver. CI bounds are reported for transparency but are not the gating threshold — N=12 is too small for confirmatory inference (see v3 Premise 5).
+Direction of effect is the decision driver. CI bounds are reported for transparency but are not the gating threshold — even at the v4 target of N=12, the sample is too small for confirmatory inference (see v3 Premise 5).
 
 ## Eval evidence
 
-The v3 benchmark (12 preregistered cases, 6 adversarial, k=3 judge passes, `claude-sonnet-4-6` cross-vendor judge with response-blinding and randomized ordering) measures adversarial Honesty as a direction-of-effect signal — not a hypothesis test. Bootstrap CI on case-level deltas (10K resamples, seed=42, percentile method) reports uncertainty bounds for transparency, framed as descriptive/exploratory in line with industry practice for small eval sets that quantify product-level progress without overclaiming. I'm using this evidence to decide a rollout gate, not to publish a research finding. Small-N preregistered evals are appropriate for product decisions and demonstrate calibrated communication of uncertainty — which aligns with calibrated-uncertainty norms in the LLM evaluation literature.
+The benchmark (v3 scaffold at N=2 today, v4 target N=12 — see [COVERAGE.md](COVERAGE.md) for case inventory) uses preregistered methodology: response-blinding, k=3 judge passes, `claude-sonnet-4-6` cross-vendor judge with randomized ordering. It measures adversarial Honesty as a direction-of-effect signal — not a hypothesis test. Bootstrap CI on case-level deltas (10K resamples, seed=42, percentile method) reports uncertainty bounds for transparency, framed as descriptive/exploratory in line with industry practice for small eval sets that quantify product-level progress without overclaiming. I'm using this evidence to decide a rollout gate, not to publish a research finding. Small-N preregistered evals are appropriate for product decisions and demonstrate calibrated communication of uncertainty — which aligns with calibrated-uncertainty norms in the LLM evaluation literature.
 
 ## Trade-offs (named explicitly)
 
 - **Accept higher eval cost (~$7) for cross-vendor judging** vs free self-grading. Trade buys credibility against the "Claude grading Claude" interviewer objection and against the smoke benchmark's self-grading anti-pattern.
-- **Accept N=12 statistical weakness** in exchange for methodology rigor + preregistration above the published bar of any target org's eval framework. Numerate reviewers will dock this; the explicit descriptive/exploratory framing is the mitigation.
+- **Accept small-sample statistical weakness** (N=2 today, N=12 at v4 target) in exchange for methodology rigor + preregistration. Numerate reviewers will dock this; the explicit descriptive/exploratory framing is the mitigation.
 - **Accept conservative "gate to admin-only" as default fallback** rather than aggressive "ship to all." This ships fewer users into potential Honesty regression in exchange for keeping the migration available as a feature flag instead of a code revert.
 - **Accept that migration impact is partially confounded** (prompt incompatibility, reasoning defaults, output format drift). v3 reports two deltas separately — cross-vendor judge held constant, and self-judge held constant via gpt-4o-mini on both runs — to isolate generator change from judge change. Remaining confounds disclosed in DECISION_LOG.
 
