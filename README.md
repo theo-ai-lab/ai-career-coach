@@ -4,7 +4,7 @@
 
 Built as a solo project to solve a real problem: career advice is either generic (ChatGPT) or expensive (human coaches). This platform delivers personalized, grounded career guidance using specialized AI agents that collaborate through a shared memory system.
 
-**57+ users · 900+ queries · 0.97 grounding · 0.94 personalization** — [4-dimension LLM-as-judge methodology](docs/EVAL_DESIGN.md).
+**57 users · 900+ queries · 4-dimension LLM-as-judge eval framework (v3 N=2, v4 target N=12 cross-vendor adversarial)** — see [COVERAGE.md](data/eval-benchmark/COVERAGE.md) for case inventory, [EVAL_DESIGN.md](docs/EVAL_DESIGN.md) for rubric.
 
 
 [LinkedIn](https://linkedin.com/in/theobermudez) · [Architecture](docs/ARCHITECTURE.md) · [Decision Log](docs/DECISION_LOG.md) · [Eval Framework](docs/EVAL_DESIGN.md)
