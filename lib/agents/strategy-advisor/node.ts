@@ -14,7 +14,7 @@ export async function generateStrategy(
   const gapsJson = JSON.stringify(gapAnalysis, null, 2);
 
   const prompt = `
-You are the world's best AI career strategist. The candidate (whose background is provided in the resumeAnalysis below) wants to land an APM role at ${targetCompany} in 6 months.
+You are the world's best AI career strategist. The candidate (whose background is provided in the resumeAnalysis below) wants to land the target role at ${targetCompany} in 6 months.
 
 You are given:
 - Structured resume analysis JSON:

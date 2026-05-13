@@ -15,7 +15,7 @@ export async function generateInterviewPrep(
   const gapsJson = JSON.stringify(gapAnalysis, null, 2);
 
   const prompt = `
-You are an elite AI interview coach preparing the candidate (whose background is provided in the resumeAnalysis below) for a ${company} APM interview.
+You are an elite AI interview coach preparing the candidate (whose background is provided in the resumeAnalysis below) for an interview at ${company} for the target role.
 
 You are given:
 - Structured resume analysis JSON:
