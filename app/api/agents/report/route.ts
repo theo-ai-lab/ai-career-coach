@@ -48,9 +48,10 @@ export async function POST(req: NextRequest) {
 
     // Check for errors in result
     if (result.error) {
-      return new Response(`Error generating report: ${result.error}`, {
-        status: 500,
-      });
+      // Do NOT echo result.error — the LangGraph state's error field can
+      // carry internal node/state details. Log it, return generic text.
+      console.error("Report graph returned an error:", result.error);
+      return new Response("Error generating report.", { status: 500 });
     }
 
     // Return the compiled report
@@ -66,10 +67,11 @@ export async function POST(req: NextRequest) {
       headers: { "Content-Type": "text/markdown; charset=utf-8" },
     });
   } catch (error: any) {
+    // Log the full error server-side. Do NOT echo error.message to the
+    // client — it can leak Supabase/OpenAI internals (table names, RPC
+    // signatures, auth details). Pre-ship audit 2026-05-12, L2-038.
     console.error("Report pipeline error:", error);
-    return new Response(`Error generating report: ${error.message}`, {
-      status: 500,
-    });
+    return new Response("Error generating report.", { status: 500 });
   }
 }
 

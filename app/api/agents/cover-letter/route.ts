@@ -20,9 +20,12 @@ export async function POST(req: NextRequest) {
 
     return Response.json({ success: true, letter, highStakes });
   } catch (error: any) {
+    // Log the full error server-side. Do NOT echo error.message to the
+    // client — it can leak Supabase/OpenAI internals (table names, RPC
+    // signatures, auth details). Pre-ship audit 2026-05-12, L2-038.
     console.error("Cover letter agent error:", error);
     return Response.json(
-      { error: error?.message ?? "Unknown error" },
+      { error: "Failed to generate cover letter." },
       { status: 500 },
     );
   }
