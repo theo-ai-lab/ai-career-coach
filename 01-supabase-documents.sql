@@ -29,12 +29,12 @@ CREATE INDEX IF NOT EXISTS documents_metadata_gin_idx
   ON documents
   USING gin (metadata);
 
--- Row-Level Security: enable now, refined policies live in 05-supabase-fix.sql.
--- Standalone-safe default: anon insert + select. 05-supabase-fix.sql replaces these with the canonical set.
+-- Row-Level Security: enable now; the canonical service_role policy lives in
+-- 05-supabase-fix.sql. Pre-ship audit Defer-2 (2026-05-14): the previous
+-- "allow anon insert" + "allow anon select" defaults let any anon-key holder
+-- read every user's resume chunks via a direct
+-- supabase.from('documents').select('*') call, bypassing the resume_id
+-- scoping in match_documents_v2. Removed entirely; all server access now goes
+-- through SUPABASE_SERVICE_ROLE_KEY (see lib/supabase.ts, lib/rag.ts,
+-- app/api/upload/route.ts).
 ALTER TABLE documents ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "allow anon insert" ON documents
-  FOR INSERT TO anon WITH CHECK (true);
-
-CREATE POLICY "allow anon select" ON documents
-  FOR SELECT TO anon USING (true);

@@ -42,8 +42,17 @@ BEGIN
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION match_documents_v2(vector, int, text, text) TO anon;
-GRANT EXECUTE ON FUNCTION match_documents_v2(vector, int, text, text) TO authenticated;
+-- Defer-2 closure (2026-05-14): EXECUTE is service_role-only. Anon and
+-- authenticated grants removed because every caller
+-- (app/api/query/route.ts, lib/rag.ts, lib/agents/resume-analyzer/node.ts)
+-- constructs its Supabase client with SUPABASE_SERVICE_ROLE_KEY server-side.
+-- REVOKE FROM PUBLIC is belt-and-suspenders: Postgres defaults grant EXECUTE
+-- on new functions to PUBLIC, so an explicit revoke makes the lockdown
+-- visible at re-run and resilient to anyone re-running CREATE OR REPLACE.
+REVOKE EXECUTE ON FUNCTION match_documents_v2(vector, int, text, text) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION match_documents_v2(vector, int, text, text) FROM anon;
+REVOKE EXECUTE ON FUNCTION match_documents_v2(vector, int, text, text) FROM authenticated;
+GRANT  EXECUTE ON FUNCTION match_documents_v2(vector, int, text, text) TO service_role;
 
 -- HNSW index for embedding lives in 01-supabase-documents.sql (canonical).
 
