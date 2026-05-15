@@ -1,6 +1,5 @@
-import { createClient } from '@supabase/supabase-js';
 import { ChatOpenAI } from '@langchain/openai';
-import type { Database } from '@/lib/supabase-types';
+import { getSupabase } from '@/lib/supabase';
 
 // Local exported shape used by callers. The DB column sentiment is TEXT
 // (no enum constraint), so reads can return any string or null. The
@@ -16,12 +15,12 @@ export interface SessionMemory {
 }
 
 export async function getRecentSessions(userId: string, limit: number = 5): Promise<SessionMemory[]> {
+  // Hoisted outside try/catch so a missing SUPABASE_SERVICE_ROLE_KEY
+  // propagates as a 5xx instead of being swallowed as a console warning
+  // (previous behavior silently fell back to the anon key, which then
+  // failed RLS denials at query time — invisible to operators).
+  const supabase = getSupabase();
   try {
-    const supabase = createClient<Database>(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
-    
     const { data, error } = await supabase
       .from('session_memories')
       .select('*')
@@ -47,14 +46,14 @@ export function summarizeSessionAsync(
   sessionId: string,
   messages: Array<{ role: string; content: string }>
 ): void {
-  // Don't block - run in background (fire-and-forget)
+  // Validate env synchronously before kicking off the fire-and-forget IIFE.
+  // A missing SUPABASE_SERVICE_ROLE_KEY here surfaces as a synchronous throw
+  // into the calling route, rather than completing the response while
+  // silently dropping the session summary (previous fallback-to-anon
+  // behavior produced an RLS denial that was logged and ignored).
+  const supabase = getSupabase();
   (async () => {
     try {
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      );
-      
       const llm = new ChatOpenAI({
         model: 'gpt-4o-mini',
         temperature: 0.3,

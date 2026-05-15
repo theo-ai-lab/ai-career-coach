@@ -1,5 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
-import type { Database } from '@/lib/supabase-types';
+import { getSupabase } from '@/lib/supabase';
 
 // Local exported shape used by callers. Allows `string | null` on the
 // nullable text columns (per the SQL — no NOT NULL on most fields) so
@@ -21,12 +20,12 @@ export interface UserProfile {
 }
 
 export async function getUserProfile(userId: string): Promise<UserProfile | null> {
+  // Hoisted outside try/catch so a missing SUPABASE_SERVICE_ROLE_KEY
+  // propagates as a 5xx instead of being swallowed as a console warning
+  // (previous behavior silently fell back to the anon key, which then
+  // failed RLS denials at query time — invisible to operators).
+  const supabase = getSupabase();
   try {
-    const supabase = createClient<Database>(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
-    
     const { data, error } = await supabase
       .from('user_profiles')
       .select('*')
@@ -46,12 +45,9 @@ export async function getUserProfile(userId: string): Promise<UserProfile | null
 }
 
 export async function upsertUserProfile(profile: UserProfile): Promise<void> {
+  // See getUserProfile comment: env-missing must propagate, not log-and-swallow.
+  const supabase = getSupabase();
   try {
-    const supabase = createClient<Database>(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
-    
     const { error } = await supabase
       .from('user_profiles')
       .upsert(
