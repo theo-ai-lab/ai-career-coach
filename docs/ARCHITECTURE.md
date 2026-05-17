@@ -2,7 +2,7 @@
 
 **Version:** 3.0
 **Last Updated:** May 2026
-**Status:** Deployed to Vercel; live at https://ai-career-coach-hazel.vercel.app
+**Status:** Deployed to Vercel.
 
 ---
 

@@ -57,12 +57,6 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# Local editor configuration
-.cursor/
-
-# Local editor configuration
-/
-
 # Never commit personal research PDFs
 *.pdf
 grok_chats/
@@ -70,15 +64,8 @@ dev-error.log
 .next
 .next 2
 
-# Local project instructions
-CLAUDE.md
-
 # macOS Finder duplicates
 * 2.md
 * 2.sql
 * 2.json
 * 2.ts
-
-# Local automation state
-./
-.gbrain-source

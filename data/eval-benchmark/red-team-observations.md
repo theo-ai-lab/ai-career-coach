@@ -1,7 +1,7 @@
 # Red-Team Observations — Path A
 
 **Date:** 2026-05-11
-**Target:** https://ai-career-coach-hazel.vercel.app (production)
+**Target:** production deployment
 **Persona:** synthetic-redteam-01 (Avery Patel — librarian → data science, 2022-2024 unexplained gap)
 **Resume ID:** Redacted production test resume ID
 **Run ID:** Redacted production red-team run ID
