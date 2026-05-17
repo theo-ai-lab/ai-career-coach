@@ -32,6 +32,11 @@
  *
  * Run:
  *   node scripts/run-eval-benchmark.cjs --smoke
+ *   node scripts/run-eval-benchmark.cjs --smoke --per-dim-judge
+ *
+ * Default is single-call judge (one call returning all 4 scores). The
+ * --per-dim-judge flag opts into isolated per-dimension judge calls (4 calls
+ * per case), which removes rubric cross-contamination at ~4x judge cost.
  */
 
 const { readFile, readdir, writeFile, mkdir } = require('fs/promises');
@@ -51,6 +56,9 @@ if (!args.includes('--smoke')) {
   console.error('--dry-run, --max-cost-usd, --experiment are stubs; v2 will implement them.');
   process.exit(1);
 }
+
+const perDimJudge = args.includes('--per-dim-judge');
+const JUDGE_MODE = perDimJudge ? 'per_dimension' : 'single_call';
 
 const ROOT = resolve(__dirname, '..');
 const BENCHMARK_DIR = resolve(ROOT, 'data/eval-benchmark');
@@ -183,10 +191,107 @@ Return ONLY valid JSON, no markdown:
   return result;
 }
 
+// Per-dimension judge path (opt-in via --per-dim-judge).
+//
+// Each dimension gets an isolated single-criterion prompt and its own
+// completion call. This removes the rubric cross-contamination that the
+// single-call judge produces (e.g., penalizing actionability on a case
+// whose target dimension is honesty).
+//
+// Same model, same temperature as the single-call path. Cost scales 4x
+// per case. Overall score formula is unchanged: average of the 4 scores
+// scaled to 0-100.
+
+const RUBRIC_BY_DIM = {
+  actionability: `ACTIONABILITY (1-5): Can the user act on this advice within 48 hours?
+- 5: Specific action + timeline + method
+- 3: Action category without specifics
+- 1: Pure platitude`,
+  personalization: `PERSONALIZATION (1-5): Is this specific to the resume, not generic advice?
+- 5: References specific experiences/projects from contexts
+- 3: Acknowledges field/level but semi-generic
+- 1: Could apply to anyone`,
+  honesty: `HONESTY (1-5): Does it acknowledge uncertainty appropriately?
+- 5: Clear confidence calibration where warranted
+- 3: Doesn't overclaim but no explicit uncertainty
+- 1: Definitive predictive claims about unknowable things`,
+  grounding: `GROUNDING (1-5): Is every claim about the user traceable to the context?
+- 5: Every claim verifiable in context
+- 3: Mostly grounded with minor reasonable extrapolation
+- 1: Significant hallucination`,
+};
+
+async function judgeOneDim(dim, query, response, contexts) {
+  const contextsText = contexts.map((c, i) => `[Context ${i + 1}]\n${c}`).join('\n\n');
+  const prompt = `You are an expert evaluator of AI coaching responses. Evaluate the following coaching response ONLY on the single criterion below.
+
+USER QUERY:
+${query}
+
+RETRIEVED CONTEXTS:
+${contextsText}
+
+COACHING RESPONSE TO EVALUATE:
+${response}
+
+EVALUATION CRITERION:
+
+${RUBRIC_BY_DIM[dim]}
+
+OUTPUT FORMAT:
+Return ONLY valid JSON, no markdown:
+{
+  "score": <1-5>,
+  "reasoning": "<brief explanation, 1-2 sentences>"
+}`;
+
+  const raw = await chatCompletion({
+    model: JUDGE_MODEL,
+    temperature: JUDGE_TEMP,
+    messages: [{ role: 'user', content: prompt }],
+  });
+
+  let cleaned = raw.trim();
+  if (cleaned.startsWith('```')) {
+    cleaned = cleaned.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '');
+  }
+  const match = cleaned.match(/\{[\s\S]*\}/);
+  if (!match) throw new Error(`No JSON in ${dim} judge response: ${raw}`);
+
+  const parsed = JSON.parse(match[0]);
+  if (typeof parsed.score !== 'number' || parsed.score < 1 || parsed.score > 5) {
+    throw new Error(`Invalid ${dim} score: ${parsed.score}`);
+  }
+  return { score: parsed.score, reasoning: String(parsed.reasoning ?? '') };
+}
+
+async function judgeResponsePerDim(query, response, contexts) {
+  const dims = ['actionability', 'personalization', 'honesty', 'grounding'];
+  // Parallel: 4 isolated calls. Each only sees its own rubric.
+  const out = await Promise.all(
+    dims.map((d) => judgeOneDim(d, query, response, contexts))
+  );
+  const scores = {};
+  const per_dim_reasoning = {};
+  dims.forEach((d, i) => {
+    scores[d] = out[i].score;
+    per_dim_reasoning[d] = out[i].reasoning;
+  });
+  const avg =
+    (scores.actionability +
+      scores.personalization +
+      scores.honesty +
+      scores.grounding) /
+    4;
+  const overall = Math.round((avg / 5) * 100);
+  return { scores, per_dim_reasoning, overall };
+}
+
 async function main() {
   console.log('SMOKE RUN STARTING');
   console.log(`  Generation: ${GEN_MODEL} (temp ${GEN_TEMP})`);
   console.log(`  Judge: ${JUDGE_MODEL} (temp ${JUDGE_TEMP})`);
+  console.log(`  Judge mode: ${JUDGE_MODE}${perDimJudge ? ' (4 isolated calls per case, ~4x cost)' : ''}`);
   console.log('  Mode: smoke (~$0.05-0.10, ~2 min)');
   console.log('');
 
@@ -215,7 +320,9 @@ async function main() {
     console.log(`  Response generated: ${genTimeS.toFixed(1)}s, ${response.length} chars`);
 
     const judgeStart = Date.now();
-    const judgement = await judgeResponse(c.query, response, [persona.resume_text]);
+    const judgement = perDimJudge
+      ? await judgeResponsePerDim(c.query, response, [persona.resume_text])
+      : await judgeResponse(c.query, response, [persona.resume_text]);
     const judgeTimeS = (Date.now() - judgeStart) / 1000;
     console.log(`  Judged: ${judgeTimeS.toFixed(1)}s | overall ${judgement.overall}/100`);
     console.log(`    actionability: ${judgement.scores.actionability}/5`);
@@ -224,7 +331,7 @@ async function main() {
     console.log(`    grounding: ${judgement.scores.grounding}/5`);
     console.log('');
 
-    results.push({
+    const caseResult = {
       case_id: c.id,
       persona_id: persona.id,
       persona_label: persona.label,
@@ -233,12 +340,22 @@ async function main() {
       response,
       scores: judgement.scores,
       overall: judgement.overall,
-      reasoning: judgement.reasoning,
+      reasoning: perDimJudge
+        ? '(per-dimension mode — see per_dim_reasoning)'
+        : judgement.reasoning,
       gen_time_s: Number(genTimeS.toFixed(2)),
       judge_time_s: Number(judgeTimeS.toFixed(2)),
       timestamp: new Date().toISOString(),
-    });
+    };
+    if (judgement.per_dim_reasoning) {
+      caseResult.per_dim_reasoning = judgement.per_dim_reasoning;
+    }
+    results.push(caseResult);
   }
+
+  const judgeCaveat = perDimJudge
+    ? 'Per-dimension isolated judges active. Same model as the generator; cross-model judging is the next planned improvement to address grounding self-grading bias.'
+    : 'Single-call judge returning all 4 scores. Production methodology requires per-dimension isolated judges per Anthropic eval guidance. v2.';
 
   const summary = {
     run_metadata: {
@@ -248,11 +365,12 @@ async function main() {
       generation_temperature: GEN_TEMP,
       judge_model: JUDGE_MODEL,
       judge_temperature: JUDGE_TEMP,
+      judge_mode: JUDGE_MODE,
       transport: 'native fetch (CJS, no SDK)',
       total_personas_loaded: personas.length,
       total_cases_run: results.length,
       smoke_caveats: [
-        'Single-call judge returning all 4 scores. Production methodology requires per-dimension isolated judges per Anthropic eval guidance. v2.',
+        judgeCaveat,
         '1-5 scoring inherited from existing lib/evals/coaching-quality.ts. Production methodology migrates to 0-5 with "Unknown" option in v2.',
         'Native fetch over HTTPS (bypasses @langchain/openai TLA hang and openai SDK v6 module-load hang on Node 24.11.1 / tsx 4.21). Production runner will use OpenRouter for cross-model comparison. v2.',
         'No council validation, no Krippendorff alpha, no bootstrap CIs, no position bias check. Smoke validates pipeline only.',
@@ -262,7 +380,8 @@ async function main() {
   };
 
   await mkdir(RESULTS_DIR, { recursive: true });
-  const outPath = join(RESULTS_DIR, '2026-05-10-smoke.json');
+  const outFile = perDimJudge ? '2026-05-10-smoke-perdim.json' : '2026-05-10-smoke.json';
+  const outPath = join(RESULTS_DIR, outFile);
   await writeFile(outPath, JSON.stringify(summary, null, 2));
 
   console.log('---');
