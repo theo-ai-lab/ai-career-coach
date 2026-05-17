@@ -298,6 +298,5 @@ Post-remediation smoke tests passed:
 
 ## Current Known Gaps
 
-- `README.md` and `docs/ARCHITECTURE.md` still mention `match_documents` v1.
-- `lib/supabase-types.ts` still declares `match_documents`.
+- Stale `match_documents` v1 docs/types references were cleaned up on 2026-05-16; intentional v1-absence verification references remain.
 - `scripts/ingest.ts` uses the anon key for document inserts, which is inconsistent with the service-role-only `documents` posture.

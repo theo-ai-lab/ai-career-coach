@@ -183,18 +183,6 @@ export type Database = {
           similarity: number;
         }[];
       };
-      match_documents: {
-        Args: {
-          query_embedding: number[];
-          match_count?: number;
-        };
-        Returns: {
-          id: number;
-          content: string;
-          metadata: DocumentMetadata;
-          similarity: number;
-        }[];
-      };
     };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;

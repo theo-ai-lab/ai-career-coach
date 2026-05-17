@@ -112,8 +112,8 @@ AI Career Coach is a RAG-powered career coaching application that provides perso
 │  └─────────────────┘                                                 │
 │                                                                       │
 │  RPC Functions:                                                      │
-│  - match_documents(query_embedding, match_count)                    │
-│    → Vector similarity search using cosine distance                 │
+│  - match_documents_v2(query_embedding, match_count, p_resume_id,    │
+│    p_user_id) → Scoped vector similarity search                     │
 └─────────────────────────────────────────────────────────────────────┘
                                 │
                                 ▼
@@ -195,11 +195,13 @@ POST /api/query
        │    └──► OpenAI text-embedding-3-small
        │
        ├──► Vector Search
-       │    └──► supabase.rpc('match_documents', {
+       │    └──► supabase.rpc('match_documents_v2', {
        │           query_embedding: vector,
-       │           match_count: resumeId ? 20 : 6
+       │           match_count: resumeId ? 20 : 6,
+       │           p_resume_id: resumeId,
+       │           p_user_id: userId
        │         })
-       │    └──► Filter by resume_id in metadata
+       │    └──► Scope by resume_id / user_id inside SQL
        │    └──► Slice to top 6 chunks
        │
        ├──► Build Grounded Prompt
@@ -364,10 +366,11 @@ Response Generated
 - Metadata index: On `metadata->>'resume_id'` for filtering
 
 **RLS Policies:**
-- Allow anon insert/select (for API routes)
+- Service-role-only document access; API routes use server-side service-role clients
 
 **RPC Function:**
-- `match_documents(query_embedding vector, match_count int)` → Returns top-K similar documents with similarity scores
+- `match_documents_v2(query_embedding vector, match_count int, p_resume_id text, p_user_id text)` → Canonical scoped vector search returning top-K similar documents with similarity scores
+- `match_documents` v1 is absent in production.
 
 ---
 

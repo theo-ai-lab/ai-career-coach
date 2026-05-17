@@ -6,6 +6,11 @@ import fs from 'fs';
 import path from 'path';
 import 'dotenv/config';
 
+console.error(
+  'scripts/ingest.ts is deprecated and disabled: documents is service-role-only, but this script still uses the anon key. Do not run it until it is redesigned for the current production security posture.'
+);
+process.exit(1);
+
 const client = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!

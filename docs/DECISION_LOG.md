@@ -33,7 +33,9 @@ This document captures key technical and product decisions made throughout devel
 - Familiar SQL interface for team
 - Can migrate to dedicated vector DB later if needed
 
-**Implementation:** `documents` table with `embedding vector(1536)` column, `match_documents` RPC function for similarity search.
+**Implementation:** `documents` table with `embedding vector(1536)` column, `match_documents_v2` RPC function for scoped similarity search.
+
+**Update 2026-05-16:** `match_documents` v1 was removed. `match_documents_v2` is the canonical RPC and scopes retrieval by resume/user identifiers before returning chunks.
 
 ---
 

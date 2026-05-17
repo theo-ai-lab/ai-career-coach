@@ -70,7 +70,7 @@ Known failure modes surfaced by the red-team (May 2026) — including a cross-co
 2. **Chunk** — `RecursiveCharacterTextSplitter` (1000 chars, 200 overlap)
 3. **Embed** — `text-embedding-3-small` → 1536-dim vectors
 4. **Store** — Supabase pgvector with HNSW indexing
-5. **Retrieve** — Cosine similarity search via `match_documents` RPC (top-6 retrieval, post-filtered by `resume_id`)
+5. **Retrieve** — Cosine similarity search via `match_documents_v2` RPC, scoped in SQL by `resume_id` / `user_id` before returning the top chunks
 6. **Generate** — `gpt-4o-mini` with strict grounding prompt (temperature: 0.2)
 7. **Track** — PostHog analytics on every query and response
 
