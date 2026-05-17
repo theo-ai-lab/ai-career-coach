@@ -115,13 +115,20 @@ async function chatCompletion({ model, temperature, messages, provider = 'openai
     url = 'https://api.openai.com/v1/chat/completions';
     key = OPENAI_API_KEY;
   }
+  const body = { model, temperature, messages };
+  if (provider === 'openrouter') {
+    // Cap max output so the provider does not pre-authorize against the
+    // model's full output window for cost-reservation purposes. Judge
+    // responses are short JSON; 1024 is ample headroom.
+    body.max_tokens = 1024;
+  }
   const res = await fetch(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${key}`,
     },
-    body: JSON.stringify({ model, temperature, messages }),
+    body: JSON.stringify(body),
   });
   if (!res.ok) {
     const errText = await res.text();
