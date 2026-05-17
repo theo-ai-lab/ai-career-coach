@@ -33,10 +33,17 @@
  * Run:
  *   node scripts/run-eval-benchmark.cjs --smoke
  *   node scripts/run-eval-benchmark.cjs --smoke --per-dim-judge
+ *   node scripts/run-eval-benchmark.cjs --smoke --judge-provider=openrouter --judge-model=<provider/model>
+ *   (the cross-provider flag combines with --per-dim-judge for per-dimension cross-provider judging)
  *
  * Default is single-call judge (one call returning all 4 scores). The
  * --per-dim-judge flag opts into isolated per-dimension judge calls (4 calls
  * per case), which removes rubric cross-contamination at ~4x judge cost.
+ * The --judge-provider=openrouter flag routes judge calls through an
+ * alternate provider to reduce same-model self-grading bias. Generation
+ * always stays on the default provider. Requires OPENROUTER_API_KEY in
+ * .env.local and an explicit --judge-model=<slug>. No model slug is
+ * hardcoded in this file.
  */
 
 const { readFile, readdir, writeFile, mkdir } = require('fs/promises');
@@ -60,6 +67,29 @@ if (!args.includes('--smoke')) {
 const perDimJudge = args.includes('--per-dim-judge');
 const JUDGE_MODE = perDimJudge ? 'per_dimension' : 'single_call';
 
+function getArgValue(prefix) {
+  const a = args.find((x) => x.startsWith(prefix));
+  return a ? a.slice(prefix.length) : null;
+}
+const judgeProvider = getArgValue('--judge-provider=') || 'openai';
+const judgeModelOverride = getArgValue('--judge-model=');
+
+if (judgeProvider !== 'openai' && judgeProvider !== 'openrouter') {
+  console.error(`FATAL: --judge-provider must be "openai" or "openrouter" (got "${judgeProvider}")`);
+  process.exit(1);
+}
+
+if (judgeProvider === 'openrouter') {
+  if (!judgeModelOverride) {
+    console.error('FATAL: --judge-provider=openrouter requires --judge-model=<provider/model>');
+    process.exit(1);
+  }
+  if (!process.env.OPENROUTER_API_KEY) {
+    console.error('FATAL: --judge-provider=openrouter requires OPENROUTER_API_KEY in .env.local (see .env.example).');
+    process.exit(1);
+  }
+}
+
 const ROOT = resolve(__dirname, '..');
 const BENCHMARK_DIR = resolve(ROOT, 'data/eval-benchmark');
 const PERSONAS_DIR = join(BENCHMARK_DIR, 'personas');
@@ -70,19 +100,32 @@ const GEN_MODEL = 'gpt-4o-mini';
 const GEN_TEMP = 0.2;
 const JUDGE_MODEL = 'gpt-4o-mini';
 const JUDGE_TEMP = 0;
+// Effective judge model: the hardcoded default for the openai path,
+// or the user-supplied --judge-model=<slug> for the openrouter path.
+// No specific cross-provider slug is hardcoded in this file.
+const JUDGE_MODEL_EFFECTIVE = judgeProvider === 'openrouter' ? judgeModelOverride : JUDGE_MODEL;
 
-async function chatCompletion({ model, temperature, messages }) {
-  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+async function chatCompletion({ model, temperature, messages, provider = 'openai' }) {
+  let url;
+  let key;
+  if (provider === 'openrouter') {
+    url = 'https://openrouter.ai/api/v1/chat/completions';
+    key = process.env.OPENROUTER_API_KEY;
+  } else {
+    url = 'https://api.openai.com/v1/chat/completions';
+    key = OPENAI_API_KEY;
+  }
+  const res = await fetch(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${OPENAI_API_KEY}`,
+      Authorization: `Bearer ${key}`,
     },
     body: JSON.stringify({ model, temperature, messages }),
   });
   if (!res.ok) {
     const errText = await res.text();
-    throw new Error(`OpenAI ${res.status}: ${errText.slice(0, 500)}`);
+    throw new Error(`${provider} ${res.status}: ${errText.slice(0, 500)}`);
   }
   const json = await res.json();
   return json.choices[0].message.content ?? '';
@@ -166,9 +209,10 @@ Return ONLY valid JSON, no markdown:
 }`;
 
   const raw = await chatCompletion({
-    model: JUDGE_MODEL,
+    model: JUDGE_MODEL_EFFECTIVE,
     temperature: JUDGE_TEMP,
     messages: [{ role: 'user', content: prompt }],
+    provider: judgeProvider,
   });
 
   let cleaned = raw.trim();
@@ -246,9 +290,10 @@ Return ONLY valid JSON, no markdown:
 }`;
 
   const raw = await chatCompletion({
-    model: JUDGE_MODEL,
+    model: JUDGE_MODEL_EFFECTIVE,
     temperature: JUDGE_TEMP,
     messages: [{ role: 'user', content: prompt }],
+    provider: judgeProvider,
   });
 
   let cleaned = raw.trim();
@@ -290,8 +335,9 @@ async function judgeResponsePerDim(query, response, contexts) {
 async function main() {
   console.log('SMOKE RUN STARTING');
   console.log(`  Generation: ${GEN_MODEL} (temp ${GEN_TEMP})`);
-  console.log(`  Judge: ${JUDGE_MODEL} (temp ${JUDGE_TEMP})`);
+  console.log(`  Judge: ${JUDGE_MODEL_EFFECTIVE} (temp ${JUDGE_TEMP})`);
   console.log(`  Judge mode: ${JUDGE_MODE}${perDimJudge ? ' (4 isolated calls per case, ~4x cost)' : ''}`);
+  console.log(`  Judge transport: ${judgeProvider}`);
   console.log('  Mode: smoke (~$0.05-0.10, ~2 min)');
   console.log('');
 
@@ -354,8 +400,12 @@ async function main() {
   }
 
   const judgeCaveat = perDimJudge
-    ? 'Per-dimension isolated judges active. Same model as the generator; cross-model judging is the next planned improvement to address grounding self-grading bias.'
-    : 'Single-call judge returning all 4 scores. Production methodology requires per-dimension isolated judges per Anthropic eval guidance. v2.';
+    ? (judgeProvider === 'openrouter'
+        ? 'Per-dimension isolated judges active with cross-provider transport. Independent judge model reduces same-model self-grading bias.'
+        : 'Per-dimension isolated judges active. Same model as the generator; cross-model judging is the next planned improvement to address grounding self-grading bias.')
+    : (judgeProvider === 'openrouter'
+        ? 'Single-call judge with cross-provider transport. Independent judge model reduces same-model self-grading bias.'
+        : 'Single-call judge returning all 4 scores. Production methodology requires per-dimension isolated judges per Anthropic eval guidance. v2.');
 
   const summary = {
     run_metadata: {
@@ -366,6 +416,8 @@ async function main() {
       judge_model: JUDGE_MODEL,
       judge_temperature: JUDGE_TEMP,
       judge_mode: JUDGE_MODE,
+      judge_transport: judgeProvider,
+      judge_model_effective: JUDGE_MODEL_EFFECTIVE,
       transport: 'native fetch (CJS, no SDK)',
       total_personas_loaded: personas.length,
       total_cases_run: results.length,
@@ -380,7 +432,9 @@ async function main() {
   };
 
   await mkdir(RESULTS_DIR, { recursive: true });
-  const outFile = perDimJudge ? '2026-05-10-smoke-perdim.json' : '2026-05-10-smoke.json';
+  const perDimTag = perDimJudge ? '-perdim' : '';
+  const providerTag = judgeProvider === 'openrouter' ? '-xprovider' : '';
+  const outFile = `2026-05-10-smoke${perDimTag}${providerTag}.json`;
   const outPath = join(RESULTS_DIR, outFile);
   await writeFile(outPath, JSON.stringify(summary, null, 2));
 
