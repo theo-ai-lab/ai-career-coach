@@ -2,13 +2,13 @@
 
 ## Verification Date / Operator / Result
 
-- Date verified:
-- Operator:
-- Supabase project/environment:
-- SQL files applied:
-- Smoke tests run:
-- Pass/fail status:
-- Follow-up issues opened:
+- Date verified: 2026-05-16
+- Operator: Manual Supabase SQL Editor apply; live verification performed after apply
+- Supabase project/environment: Production
+- SQL files applied: Manual remediation matching `05-supabase-fix.sql` / `04-supabase-evals.sql` posture plus table grant revokes
+- Smoke tests run: Upload, unique phrase retrieval, role/skill-gap grounded answer, avoid-path grounded answer
+- Pass/fail status: PASS
+- Follow-up issues opened: None recorded
 
 ## Purpose And Scope
 
@@ -273,6 +273,28 @@ If live SQL does not match the repo posture, reapply the repo SQL files only thr
 ```
 
 After applying SQL, rerun all SQL verification queries and production smoke tests.
+
+## Latest Production Verification
+
+Production remediation was manually applied through the Supabase SQL Editor and verified live.
+
+Verified posture:
+
+- `documents`: service-role-only policies; no anon/authenticated policies.
+- `evals`: anon `INSERT` only; service-role `SELECT`; no anon `SELECT`.
+- `user_profiles`: service-role-only policies.
+- `session_memories`: service-role-only policies.
+- Table grants:
+  - `documents`, `user_profiles`, and `session_memories`: service-role only.
+  - `evals`: anon `INSERT` only plus service-role full access.
+
+Post-remediation smoke tests passed:
+
+- Test resume upload succeeded.
+- Resume retrieval with unique phrase `ORCHID-FALCON` succeeded.
+- Role/skill-gap answer was grounded in resume content.
+- Avoid-path answer was grounded in resume content.
+- The `No relevant experience found.` fallback did not appear.
 
 ## Current Known Gaps
 
