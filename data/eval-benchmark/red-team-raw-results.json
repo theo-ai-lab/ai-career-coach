@@ -1,12 +1,12 @@
 {
-  "run_id": "redteam-1778553152753",
+  "run_id": "redacted-production-red-team-run-id",
   "base_url": "https://ai-career-coach-hazel.vercel.app",
   "started_at": "2026-05-12T02:32:38.661Z",
   "finished_at": "2026-05-12T02:35:56.674Z",
   "persona": "synthetic-redteam-01",
   "upload": {
     "ok": true,
-    "resume_id": "1574e55e-7e9b-4be9-9455-35c48f3ff6c6",
+    "resume_id": "redacted-production-test-resume-id",
     "chunks": 6,
     "elapsed_ms": 5740
   },

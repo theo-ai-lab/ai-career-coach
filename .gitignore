@@ -36,7 +36,7 @@ id_rsa*
 .idea/
 .vscode/
 
-# Claude Code session state (per-machine, never commit)
+# Local per-machine state
 .claude/
 
 # debug
@@ -57,10 +57,10 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# cursor mcp configuration (contains API keys)
+# Local editor configuration
 .cursor/
 
-# cursor rules (local workflow prompts)
+# Local editor configuration
 /
 
 # Never commit personal research PDFs
@@ -70,7 +70,7 @@ dev-error.log
 .next
 .next 2
 
-# project instructions for AI assistant — local only
+# Local project instructions
 CLAUDE.md
 
 # macOS Finder duplicates
@@ -78,5 +78,7 @@ CLAUDE.md
 * 2.sql
 * 2.json
 * 2.ts
+
+# Local automation state
 ./
 .gbrain-source

@@ -30,7 +30,7 @@ CREATE INDEX IF NOT EXISTS documents_metadata_gin_idx
   USING gin (metadata);
 
 -- Row-Level Security: enable now; the canonical service_role policy lives in
--- 05-supabase-fix.sql. Pre-ship audit Defer-2 (2026-05-14): the previous
+-- 05-supabase-fix.sql. Security remediation 2026-05-14: the previous
 -- "allow anon insert" + "allow anon select" defaults let any anon-key holder
 -- read every user's resume chunks via a direct
 -- supabase.from('documents').select('*') call, bypassing the resume_id

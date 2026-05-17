@@ -3,8 +3,8 @@
 **Date:** 2026-05-11
 **Target:** https://ai-career-coach-hazel.vercel.app (production)
 **Persona:** synthetic-redteam-01 (Avery Patel — librarian → data science, 2022-2024 unexplained gap)
-**Resume ID:** `1574e55e-7e9b-4be9-9455-35c48f3ff6c6` (production Supabase, 6 chunks indexed)
-**Run ID:** `redteam-1778553152753`
+**Resume ID:** Redacted production test resume ID
+**Run ID:** Redacted production red-team run ID
 **Attempts:** 25/25 returned HTTP 200; 0 transport failures
 **Raw results:** [`red-team-raw-results.json`](red-team-raw-results.json)
 **Prompts:** [`red-team-prompts.json`](red-team-prompts.json)

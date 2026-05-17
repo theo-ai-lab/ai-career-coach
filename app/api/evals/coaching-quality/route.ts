@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
   } catch (error: any) {
     // Log the full error server-side. Do NOT echo error.message to the
     // client — it can leak Supabase/OpenAI internals (table names, RPC
-    // signatures, auth details). Pre-ship audit 2026-05-12, L2-038.
+    // signatures, auth details). Security hardening 2026-05-12.
     console.error("Coaching quality eval error:", error);
     return new Response(
       JSON.stringify({ error: "Failed to evaluate coaching quality." }),

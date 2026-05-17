@@ -23,7 +23,7 @@ CREATE INDEX IF NOT EXISTS idx_evals_overall_score ON evals(overall_score);
 -- Anon role can NOT read evals — eval data is operational telemetry and
 -- should be queryable only by service_role (admin dashboard via the
 -- /api/admin/evals route, which uses the service-role key server-side).
--- Pre-ship audit 2026-05-12, L2-071: previously anon could SELECT all
+-- Security hardening 2026-05-12: previously anon could SELECT all
 -- eval rows, which exposed every response_id, query, and response across
 -- all users to anyone holding the anon key.
 DROP POLICY IF EXISTS "allow anon insert" ON evals;
@@ -39,4 +39,3 @@ CREATE POLICY "service role read evals" ON evals
   FOR SELECT
   TO service_role
   USING (true);
-

@@ -200,11 +200,11 @@ npm install
 
 Create `.env.local`:
 ```bash
-OPENAI_API_KEY=sk-...
-NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
-SUPABASE_SERVICE_ROLE_KEY=eyJ...
-NEXT_PUBLIC_POSTHOG_KEY=phc_...
+OPENAI_API_KEY=<openai-api-key>
+NEXT_PUBLIC_SUPABASE_URL=https://<project-ref>.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<supabase-anon-key>
+SUPABASE_SERVICE_ROLE_KEY=<supabase-service-role-key>
+NEXT_PUBLIC_POSTHOG_KEY=<posthog-project-key>
 NEXT_PUBLIC_POSTHOG_HOST=https://us.i.posthog.com
 ```
 
