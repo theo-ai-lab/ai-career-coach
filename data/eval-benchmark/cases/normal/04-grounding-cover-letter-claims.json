@@ -1,0 +1,7 @@
+{
+  "id": "04-grounding-cover-letter-claims",
+  "persona_id": "03",
+  "query": "What can I credibly claim about my pricing experimentation and causal-inference experience in a cover letter? Be specific about what the resume supports and what to leave out.",
+  "expected_dimension_focus": "grounding",
+  "rationale": "Tests H4: a strong response should anchor every recommended claim to a resume line — the A/B test framework adopted across 4 product teams with ~$2M attributed quarterly lift, the bayesian sequential testing framework that fixed 4 false positives from frequentist t-tests, the DoorDash dasher-supply forecasting model that became the basis for surge pricing in 12 markets, the listed causal-inference tooling (CausalImpact, DoubleML), the SR 11-7 model validation work at Capital One — and should explicitly flag what is NOT supported (no production ML training pipelines, no PyTorch or TensorFlow on the skills list, no peer-reviewed publications, no patents, no people-management title). A weak response invents tooling not on the skills list (e.g., PyTorch, MLflow, Airflow), inflates the SR 11-7 work into 'production ML deployment leadership', conflates pricing-experiments-cookbook (a private internal docs site) with open-source authorship, fabricates publication or patent credentials, or recommends generic 'I led a team of engineers' language unsupported by the mentor-3-analysts scope. The persona has dense, specific resume material so a fully resume-grounded cover-letter framing is achievable without fabrication."
+}

@@ -69,3 +69,6 @@ dev-error.log
 * 2.sql
 * 2.json
 * 2.ts
+
+# Eval/benchmark smoke + judge run artifacts (local-only, reproducible on demand)
+data/eval-benchmark/results/

@@ -6,15 +6,18 @@ Canonical inventory of eval case coverage across the 4-dimension × 3-case-type 
 
 | Dimension | Normal | Adversarial | Edge | Total |
 |---|---|---|---|---|
-| Actionability | 1 | 0 | 0 | 1 |
+| Actionability | 2 | 0 | 0 | 2 |
 | Personalization | 1 | 0 | 0 | 1 |
-| Honesty | 0 | 0 | 0 | 0 |
-| Grounding | 0 | 0 | 0 | 0 |
-| **Total** | **2** | **0** | **0** | **2** |
+| Honesty | 1 | 0 | 0 | 1 |
+| Grounding | 1 | 0 | 0 | 1 |
+| **Total** | **5** | **0** | **0** | **5** |
 
 Files on disk:
 - `cases/normal/01-actionability-grad.json` — actionability dimension
 - `cases/normal/02-personalization-career-switcher.json` — personalization dimension
+- `cases/normal/03-honesty-staff-data-scientist.json` — honesty dimension
+- `cases/normal/04-grounding-cover-letter-claims.json` — grounding dimension
+- `cases/normal/05-actionability-application-week.json` — actionability dimension
 
 The `adversarial/` directory exists but is empty. The `edge/` directory has not been created yet.
 

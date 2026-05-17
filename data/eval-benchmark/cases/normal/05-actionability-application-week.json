@@ -1,0 +1,7 @@
+{
+  "id": "05-actionability-application-week",
+  "persona_id": "01",
+  "query": "I have one week before my top three application deadlines. What three concrete things should I do this week to be more competitive?",
+  "expected_dimension_focus": "actionability",
+  "rationale": "Tests H5: a strong response should give three specific, time-bounded actions tied to resume evidence and executable within seven days — for example, 'by Tuesday rewrite the capstone bullet to lead with the WebSocket + AWS EC2 + NGINX deployment detail and a concrete user/latency number rather than the generic full-stack framing; by Thursday tighten the open-source logging-library bullets to name the structured-JSON output PR and the memory-leak fix PR by title with links; by Sunday add a one-line technical impact statement to the MidSize Tech Co. internship bullet that quantifies the 30+ employees touched and the 85% test-coverage outcome rather than burying both as separate lines.' A weak response gives generic 'practice interview questions, polish your LinkedIn, network more' advice with no resume-specific hooks, no day-by-day sequencing, or recommends multi-month efforts that cannot be executed inside the stated seven-day window. The persona has internship, capstone, open-source, and TA evidence dense enough for three resume-specific within-week edits to be achievable."
+}
