@@ -34,7 +34,8 @@
  *   node scripts/run-eval-benchmark.cjs --smoke
  *   node scripts/run-eval-benchmark.cjs --smoke --per-dim-judge
  *   node scripts/run-eval-benchmark.cjs --smoke --judge-provider=openrouter --judge-model=<provider/model>
- *   (the cross-provider flag combines with --per-dim-judge for per-dimension cross-provider judging)
+ *   node scripts/run-eval-benchmark.cjs --smoke --include-adversarial
+ *   (any of the four flags combine)
  *
  * Default is single-call judge (one call returning all 4 scores). The
  * --per-dim-judge flag opts into isolated per-dimension judge calls (4 calls
@@ -44,6 +45,9 @@
  * always stays on the default provider. Requires OPENROUTER_API_KEY in
  * .env.local and an explicit --judge-model=<slug>. No model slug is
  * hardcoded in this file.
+ * The --include-adversarial flag additionally loads cases/adversarial/*.json
+ * alongside cases/normal/*.json. Opt-in so the default 5-case normal baseline
+ * stays stable for comparability as adversarial/edge cases are authored.
  */
 
 const { readFile, readdir, writeFile, mkdir } = require('fs/promises');
@@ -66,6 +70,7 @@ if (!args.includes('--smoke')) {
 
 const perDimJudge = args.includes('--per-dim-judge');
 const JUDGE_MODE = perDimJudge ? 'per_dimension' : 'single_call';
+const includeAdversarial = args.includes('--include-adversarial');
 
 function getArgValue(prefix) {
   const a = args.find((x) => x.startsWith(prefix));
@@ -94,6 +99,7 @@ const ROOT = resolve(__dirname, '..');
 const BENCHMARK_DIR = resolve(ROOT, 'data/eval-benchmark');
 const PERSONAS_DIR = join(BENCHMARK_DIR, 'personas');
 const CASES_DIR = join(BENCHMARK_DIR, 'cases', 'normal');
+const CASES_ADVERSARIAL_DIR = join(BENCHMARK_DIR, 'cases', 'adversarial');
 const RESULTS_DIR = join(BENCHMARK_DIR, 'results');
 
 const GEN_MODEL = 'gpt-4o-mini';
@@ -149,8 +155,24 @@ async function loadAllPersonas() {
 }
 
 async function loadAllCases() {
-  const files = (await readdir(CASES_DIR)).filter((f) => f.endsWith('.json')).sort();
-  return Promise.all(files.map((f) => loadJson(join(CASES_DIR, f))));
+  const out = [];
+  // Always: cases/normal/*.json
+  const normalFiles = (await readdir(CASES_DIR)).filter((f) => f.endsWith('.json')).sort();
+  for (const f of normalFiles) {
+    const c = await loadJson(join(CASES_DIR, f));
+    c._case_type = 'normal';
+    out.push(c);
+  }
+  // Opt-in: cases/adversarial/*.json (--include-adversarial)
+  if (includeAdversarial) {
+    const advFiles = (await readdir(CASES_ADVERSARIAL_DIR)).filter((f) => f.endsWith('.json')).sort();
+    for (const f of advFiles) {
+      const c = await loadJson(join(CASES_ADVERSARIAL_DIR, f));
+      c._case_type = 'adversarial';
+      out.push(c);
+    }
+  }
+  return out;
 }
 
 async function generateResponse(persona, query) {
@@ -345,6 +367,7 @@ async function main() {
   console.log(`  Judge: ${JUDGE_MODEL_EFFECTIVE} (temp ${JUDGE_TEMP})`);
   console.log(`  Judge mode: ${JUDGE_MODE}${perDimJudge ? ' (4 isolated calls per case, ~4x cost)' : ''}`);
   console.log(`  Judge transport: ${judgeProvider}`);
+  console.log(`  Cases included: normal${includeAdversarial ? ' + adversarial' : ''}`);
   console.log('  Mode: smoke (~$0.05-0.10, ~2 min)');
   console.log('');
 
@@ -386,6 +409,7 @@ async function main() {
 
     const caseResult = {
       case_id: c.id,
+      case_type: c._case_type,
       persona_id: persona.id,
       persona_label: persona.label,
       query: c.query,
@@ -425,6 +449,7 @@ async function main() {
       judge_mode: JUDGE_MODE,
       judge_transport: judgeProvider,
       judge_model_effective: JUDGE_MODEL_EFFECTIVE,
+      includes_adversarial: includeAdversarial,
       transport: 'native fetch (CJS, no SDK)',
       total_personas_loaded: personas.length,
       total_cases_run: results.length,
@@ -441,7 +466,8 @@ async function main() {
   await mkdir(RESULTS_DIR, { recursive: true });
   const perDimTag = perDimJudge ? '-perdim' : '';
   const providerTag = judgeProvider === 'openrouter' ? '-xprovider' : '';
-  const outFile = `2026-05-10-smoke${perDimTag}${providerTag}.json`;
+  const advTag = includeAdversarial ? '-adv' : '';
+  const outFile = `2026-05-10-smoke${perDimTag}${providerTag}${advTag}.json`;
   const outPath = join(RESULTS_DIR, outFile);
   await writeFile(outPath, JSON.stringify(summary, null, 2));
 

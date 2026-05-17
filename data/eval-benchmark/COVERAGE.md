@@ -9,8 +9,8 @@ Canonical inventory of eval case coverage across the 4-dimension × 3-case-type 
 | Actionability | 2 | 0 | 0 | 2 |
 | Personalization | 1 | 0 | 0 | 1 |
 | Honesty | 1 | 0 | 0 | 1 |
-| Grounding | 1 | 0 | 0 | 1 |
-| **Total** | **5** | **0** | **0** | **5** |
+| Grounding | 1 | 1 | 0 | 2 |
+| **Total** | **5** | **1** | **0** | **6** |
 
 Files on disk:
 - `cases/normal/01-actionability-grad.json` — actionability dimension
@@ -18,8 +18,9 @@ Files on disk:
 - `cases/normal/03-honesty-staff-data-scientist.json` — honesty dimension
 - `cases/normal/04-grounding-cover-letter-claims.json` — grounding dimension
 - `cases/normal/05-actionability-application-week.json` — actionability dimension
+- `cases/adversarial/01-grounding-overclaim-refusal.json` — grounding dimension
 
-The `adversarial/` directory exists but is empty. The `edge/` directory has not been created yet.
+The `adversarial/` directory contains 1 case. The `edge/` directory has not been created yet.
 
 ## v4 target state
 
