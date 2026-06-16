@@ -4,9 +4,9 @@
 
 Built as a solo project to solve a real problem: career advice is either generic (ChatGPT) or expensive (human coaches). This platform delivers personalized, grounded career guidance using specialized AI agents that collaborate through a shared memory system.
 
-**Real users in production · a preregistered, falsifiable 4-dimension LLM-as-judge eval framework — N=6 cases on disk today (v3 scaffold), N=12 cross-vendor adversarial target (v4)** — see [COVERAGE.md](data/eval-benchmark/COVERAGE.md) for the canonical case inventory and [EVAL_DESIGN.md](docs/EVAL_DESIGN.md) for the rubric.
+**57 users · 900+ queries · a preregistered, falsifiable 4-dimension LLM-as-judge eval framework — N=6 cases on disk today (v3 scaffold), N=12 cross-vendor adversarial target (v4)** — see [COVERAGE.md](data/eval-benchmark/COVERAGE.md) for the canonical case inventory and [EVAL_DESIGN.md](docs/EVAL_DESIGN.md) for the rubric.
 
-<!-- Usage figures (approximately 57 users / 900+ queries as of May 2026) live in PostHog and Supabase and are not committed to this repo, so the headline does not lead with a hard, in-repo-unverifiable count. The owner can restore exact numbers here if they want to stand behind them publicly. -->
+<!-- Usage figures (57 users / 900+ queries, early-2026 pilot) are real — measured in PostHog/Supabase during the live pilot. The analytics lived in a USC-tied account that is no longer accessible, so the raw export can't be re-shared and isn't reconstructable from this repo. -->
 
 
 

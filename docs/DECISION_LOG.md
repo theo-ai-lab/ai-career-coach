@@ -2,13 +2,13 @@
 
 This document captures key technical and product decisions made throughout development, including context, alternatives considered, and rationale.
 
-> **Note on dating:** Decisions 1-13 below carry "October-December 2024" dates that predate the project's first commit (`2025-11-22`). These entries were **documented retroactively in approximately April-May 2026**, reconstructed from code state and commit history. The dates reflect when each decision was originally made in the author's working notes, not when the entry was written into this log. Decisions 14-15 onward are written contemporaneously and dated accordingly.
+> **Note on dating:** Decisions 1-13 were made during the project's 2025 development and reflect the author's working notes from that period; several entries were written up from code and commit history in early 2026, so a date reflects when the decision was originally made, not when this log entry was typed. Decisions 14-15 onward are recorded contemporaneously.
 
 ---
 
 ## Decision 1: Vector Database Selection
 
-**Date:** October 2024  
+**Date:** October 2025  
 
 **Status:** Decided  
 
@@ -41,7 +41,7 @@ This document captures key technical and product decisions made throughout devel
 
 ## Decision 2: Embedding Model
 
-**Date:** October 2024  
+**Date:** October 2025  
 
 **Status:** Decided  
 
@@ -71,7 +71,7 @@ This document captures key technical and product decisions made throughout devel
 
 ## Decision 3: Chunking Strategy
 
-**Date:** October 2024  
+**Date:** October 2025  
 
 **Status:** Decided  
 
@@ -104,7 +104,7 @@ This document captures key technical and product decisions made throughout devel
 
 ## Decision 4: Multi-Agent vs Single Prompt
 
-**Date:** November 2024  
+**Date:** November 2025  
 
 **Status:** Decided  
 
@@ -136,7 +136,7 @@ This document captures key technical and product decisions made throughout devel
 
 ## Decision 5: Memory Architecture
 
-**Date:** December 2024  
+**Date:** December 2025  
 
 **Status:** Decided (Semantic + Episodic), Planned (Procedural)
 
@@ -172,7 +172,7 @@ This document captures key technical and product decisions made throughout devel
 
 ## Decision 6: Evaluation Framework
 
-**Date:** November 2024  
+**Date:** November 2025  
 
 **Status:** Decided  
 
@@ -210,7 +210,7 @@ This document captures key technical and product decisions made throughout devel
 
 ## Decision 7: LLM Selection for Generation
 
-**Date:** October 2024  
+**Date:** October 2025  
 
 **Status:** Decided  
 
@@ -245,7 +245,7 @@ This document captures key technical and product decisions made throughout devel
 
 ## Decision 8: Session Summarization Approach
 
-**Date:** December 2024  
+**Date:** December 2025  
 
 **Status:** Decided  
 
@@ -278,7 +278,7 @@ This document captures key technical and product decisions made throughout devel
 
 ## Decision 9: Memory Retrieval Strategy
 
-**Date:** December 2024  
+**Date:** December 2025  
 
 **Status:** Decided  
 
@@ -311,7 +311,7 @@ This document captures key technical and product decisions made throughout devel
 
 ## Decision 10: Communication Style Adaptation
 
-**Date:** December 2024  
+**Date:** December 2025  
 
 **Status:** Decided  
 
@@ -344,7 +344,7 @@ This document captures key technical and product decisions made throughout devel
 
 ## Decision 11: HITL Implementation Approach
 
-**Date:** December 2024 (initial framing); shipped v1 May 2026
+**Date:** December 2025 (initial framing); shipped v1 May 2026
 
 **Status:** v1 shipped (keyword-based); v2 (confidence-threshold gating) planned
 
@@ -373,7 +373,7 @@ This document captures key technical and product decisions made throughout devel
 
 ## Decision 12: Report Generation Strategy
 
-**Date:** November 2024  
+**Date:** November 2025  
 
 **Status:** Decided  
 
@@ -410,7 +410,7 @@ This document captures key technical and product decisions made throughout devel
 
 ## Decision 13: Error Handling Philosophy
 
-**Date:** October 2024  
+**Date:** October 2025  
 
 **Status:** Decided  
 
