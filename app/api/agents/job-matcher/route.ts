@@ -14,7 +14,7 @@ interface RequestBody {
  * Helper to safely parse JSON from LLM responses.
  * Strips code fences and extracts the first JSON object.
  */
-function parseJsonResponse(content: string): any {
+function parseJsonResponse(content: string): unknown {
   // Remove markdown code blocks if present
   let cleaned = content.trim();
   if (cleaned.startsWith("```")) {
@@ -55,8 +55,11 @@ export async function POST(req: NextRequest) {
     try {
       const result = await getResumeContextById(resumeId, 12);
       chunks = result.chunks;
-    } catch (error: any) {
-      if (error.message?.includes("No documents found for resumeId")) {
+    } catch (error: unknown) {
+      if (
+        error instanceof Error &&
+        error.message?.includes("No documents found for resumeId")
+      ) {
         return Response.json(
           {
             error:
@@ -112,23 +115,21 @@ Additional formatting rules:
     let match: JobMatch;
     try {
       match = parseJsonResponse(rawContent) as JobMatch;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Job matcher: failed to parse model response", error);
       return Response.json(
         {
-          error:
-            error?.message ??
-            "Failed to parse job matching results from model response.",
+          error: "Failed to parse job matching results from model response.",
         },
         { status: 500 },
       );
     }
 
     return Response.json({ success: true, match });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Job matcher agent error:", error);
     return Response.json(
-      { error: error?.message ?? "Unknown error" },
+      { error: "Internal server error" },
       { status: 500 },
     );
   }

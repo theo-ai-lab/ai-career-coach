@@ -21,10 +21,10 @@ export async function POST(req: NextRequest) {
     const highStakes = detectHighStakesInData(prep);
 
     return Response.json({ success: true, prep, highStakes });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Interview prep agent error:", error);
     return Response.json(
-      { error: error?.message ?? "Unknown error" },
+      { error: "Internal server error" },
       { status: 500 },
     );
   }

@@ -21,8 +21,8 @@ CREATE INDEX IF NOT EXISTS idx_evals_overall_score ON evals(overall_score);
 
 -- Anon role can INSERT eval rows (API routes use the anon key to write).
 -- Anon role can NOT read evals — eval data is operational telemetry and
--- should be queryable only by service_role (admin dashboard via the
--- /api/admin/evals route, which uses the service-role key server-side).
+-- should be queryable only by service_role (server-side access using the
+-- service-role key).
 -- Security hardening 2026-05-12: previously anon could SELECT all
 -- eval rows, which exposed every response_id, query, and response across
 -- all users to anyone holding the anon key.

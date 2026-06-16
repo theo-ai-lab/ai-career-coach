@@ -114,8 +114,8 @@ Do not wrap in markdown code fences. Return only the JSON object.`;
     
     // Validate scores are in range
     const validateScore = (score: number, name: string) => {
-      if (score < 1 || score > 5) {
-        throw new Error(`${name} score must be between 1 and 5, got ${score}`);
+      if (typeof score !== "number" || Number.isNaN(score) || score < 1 || score > 5) {
+        throw new Error(`${name} score must be a number between 1 and 5, got ${score}`);
       }
     };
     
@@ -134,8 +134,9 @@ Do not wrap in markdown code fences. Return only the JSON object.`;
     result.overall = Math.round((avgScore / 5) * 100);
     
     return result;
-  } catch (error: any) {
-    throw new Error(`Failed to evaluate coaching quality: ${error.message}`);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Failed to evaluate coaching quality: ${message}`);
   }
 }
 
