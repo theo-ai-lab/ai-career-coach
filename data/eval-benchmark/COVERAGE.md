@@ -47,7 +47,7 @@ Adversarial weighting: each dimension gets one stress-test case alongside two ro
 
 | Batch | Version | Case count | Status | Goal |
 |---|---|---|---|---|
-| Batch 1 | v3 | N=2 | Complete | Scaffold the case schema, prove the eval pipeline end-to-end on a tiny grid |
+| Batch 1 | v3 | N=6 | Complete | Scaffold the case schema, prove the eval pipeline end-to-end on a tiny grid (5 normal + 1 adversarial on disk) |
 | Batch 2 | v4 | N=12 | Target | Cover all four dimensions × both normal and adversarial. Decision-grade signal on each rubric dimension |
 | Batch 3 | v5 | N=50 | Target | Expand persona diversity. Add edge cases (resume gaps, non-traditional paths, career re-entry) |
 | Long-term | — | ~N=275 | Aspirational | Full grid coverage including underrepresented persona axes (geographic, domain depth, edge cases) |

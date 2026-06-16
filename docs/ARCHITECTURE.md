@@ -33,12 +33,6 @@ AI Career Coach is a RAG-powered career coaching application that provides perso
 │  │ - Session   │  │ - Progress  │  │ - Interview │                 │
 │  │ - Memory    │  │             │  │ - Strategy  │                 │
 │  └─────────────┘  └─────────────┘  └─────────────┘                 │
-│  ┌──────────────────────────────────────────────────────────────┐   │
-│  │ Admin Dashboard (/admin/evals)                                │   │
-│  │ - Evaluation metrics                                           │   │
-│  │ - Quality scores                                               │   │
-│  │ - Response analysis                                            │   │
-│  └──────────────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────────────┘
                                 │
                                 ▼
@@ -63,9 +57,8 @@ AI Career Coach is a RAG-powered career coaching application that provides perso
 │  │ POST /api/agents/report        - Full report compilation     │   │
 │  └──────────────────────────────────────────────────────────────┘   │
 │  ┌──────────────────────────────────────────────────────────────┐   │
-│  │ Evaluation & Admin Routes                                     │   │
+│  │ Evaluation Routes                                           │   │
 │  │ POST /api/evals/coaching-quality - Evaluate response        │   │
-│  │ GET  /api/admin/evals            - Fetch evaluation stats    │   │
 │  └──────────────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────────────┘
                                 │
@@ -641,9 +634,7 @@ ai-career-coach/
 ├── app/
 │   ├── api/              # API routes
 │   │   ├── agents/       # Agent endpoints
-│   │   ├── admin/        # Admin endpoints
 │   │   └── evals/        # Evaluation endpoints
-│   ├── admin/            # Admin pages
 │   └── page.tsx          # Main chat interface
 ├── lib/
 │   ├── agents/           # Agent implementations

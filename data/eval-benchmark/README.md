@@ -4,15 +4,20 @@ A controlled synthetic benchmark designed to test whether the LLM-as-judge rubri
 
 This is the methodology document. Cases live in `cases/`. Personas live in `personas/`. Results from each run live in `results/YYYY-MM-DD.json`. Run with `node scripts/run-eval-benchmark.cjs --smoke` (the runner is CJS + native fetch because tsx + `@langchain/openai` hangs on module load in this Node 24 environment — see the script preamble).
 
+> **Models referenced in this repo — three distinct roles (don't conflate them):**
+> - **Live app generation** — `gpt-4o-mini` (temperature 0.2): what the deployed product runs to write responses today.
+> - **Current in-app eval judge** — `gpt-4o-mini` (temperature 0): the LLM-as-judge scoring production responses today (and the judge behind the May 2026 red-team run). See [`docs/EVAL_DESIGN.md`](../../docs/EVAL_DESIGN.md).
+> - **Planned benchmark judges / council** — the premium cross-vendor judges and council described below are the *target design* for the offline benchmark. The specific premium model IDs in this document (e.g. `claude-opus-4.7`, `gpt-5.4`, `gemini-3.1-pro`) are illustrative/planned targets, not models that have been run against this benchmark yet.
+
 ---
 
 ## Purpose
 
 The eval rubric scores responses on 4 dimensions (actionability, personalization, honesty, grounding) — see [`docs/EVAL_DESIGN.md`](../../docs/EVAL_DESIGN.md) for why those four. The rubric is only useful if it scores good responses high and bad responses low *for the right reasons*. Real-user data can't tell you that. You need cases where you already know the correct answer.
 
-This benchmark is not a marketing artifact. Numbers from real users are noisy, unverifiable, and tuned to whoever happened to use the product. A controlled synthetic benchmark with stated hypotheses and adversarial cases is more rigorous, more reproducible, and more defensible to a hostile reviewer.
+This benchmark is not a marketing artifact. Numbers from real users are noisy, unverifiable, and tuned to whoever happened to use the product. A controlled synthetic benchmark with stated hypotheses and adversarial cases is more rigorous, more reproducible, and more defensible than a dashboard number.
 
-If a recruiter or interviewer asks "does your eval framework actually work?", the answer is the contents of `results/`, not a number on a dashboard.
+The test of whether the eval framework actually works is the committed run data — see the live red-team run in [`red-team-raw-results.json`](red-team-raw-results.json) — not a number on a dashboard. (Full benchmark `results/YYYY-MM-DD.json` files are written locally per run and are gitignored.)
 
 ---
 
@@ -45,7 +50,7 @@ The benchmark fails on a dimension if the corresponding adversarial case scores 
 
 ## Scope: 275 cases (Planned)
 
-> **Implementation status as of 2026-05-12:** On disk today: 3 personas, 2 normal cases, 0 adversarial cases in `cases/adversarial/`, plus the 25-prompt red-team set in `red-team-prompts.json`. The 275/50/25 scope below is the **target design** the methodology is being built toward — not what currently ships. The first implementation milestone is the N=12 preregistered case set described in [`PM_DECISION_MEMO.md`](PM_DECISION_MEMO.md). Counts annotated **(Planned)** below until they exist on disk.
+> **Implementation status:** On disk today: 3 personas and N=6 runnable cases (5 in `cases/normal/`, 1 in `cases/adversarial/`), plus the 25-prompt red-team set in `red-team-prompts.json`. The canonical case inventory lives in [`COVERAGE.md`](COVERAGE.md). The 275/50/25 scope below is the **target design** the methodology is being built toward — not what currently ships. The next implementation milestone is the N=12 preregistered case set described in [`PM_DECISION_MEMO.md`](PM_DECISION_MEMO.md). Counts annotated **(Planned)** below until they exist on disk.
 
 **50 synthetic personas** (`personas/*.json`) — none correspond to a real person. Each persona has a detailed resume text with enough surface area to ground responses against.
 
@@ -119,7 +124,7 @@ This gets the consistency Anthropic recommends *and* the cross-lab robustness ch
 
 ## Generation: cross-model comparison via OpenRouter
 
-The same 275 cases (Planned) are run through 5 generation models, all via OpenRouter (single SDK, unified API, ~30 min refactor of `getGenClient()`):
+The same 275 cases (Planned) are run through 5 generation models, all via OpenRouter (single SDK, unified API, ~30 min refactor of `getGenClient()`). The premium model IDs in the table below are illustrative/planned targets (see the model-roles note at the top), not models that have been run yet:
 
 | Model | Tier | Why included |
 |-------|------|--------------|
@@ -271,7 +276,7 @@ The runner:
 6. Computes statistics: bootstrap CIs on ordinal scores, Krippendorff's α on the council subset, adversarial pass-rate as a separate binary metric
 7. Writes `results/YYYY-MM-DD.json`
 
-The admin page at `/admin/evals` reads aggregated scores from the Supabase `evals` table via `/api/admin/evals` — it surfaces production live-eval data, not benchmark results files. The per-persona jaggedness visualization on top of benchmark results is on the post-v3 roadmap, not yet shipped.
+Production live-eval scores are written to the Supabase `evals` table and inspected via direct queries — separate from these benchmark results files. (An earlier unauthenticated `/admin/evals` view was removed before release.) The per-persona jaggedness visualization on top of benchmark results is on the post-v3 roadmap, not yet shipped.
 
 ---
 
@@ -303,7 +308,7 @@ Results are dated. Re-running the benchmark on the same code generates a new dat
 
 A score delta on an unchanged rubric is a regression. A score delta after a deliberate rubric change is the unit of progress.
 
-This versioning discipline is itself the portfolio signal. "I built the eval first, then used it to validate every architectural change" is what AI labs hire for.
+The discipline is to build the eval first, then use it to validate every architectural change. A score delta with no corresponding code change is treated as judge variance to investigate, not as progress to claim.
 
 ---
 

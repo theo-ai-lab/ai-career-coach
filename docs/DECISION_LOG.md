@@ -204,8 +204,7 @@ This document captures key technical and product decisions made throughout devel
 - `lib/evals/coaching-quality.ts` - LLM-as-judge evaluator
 - `app/api/evals/coaching-quality/route.ts` - Evaluation endpoint
 - Integrated into `app/api/agents/report/route.ts` for section-level evaluation
-- Scores stored in `evals` table in Supabase
-- Admin dashboard at `/admin/evals`
+- Scores stored in `evals` table in Supabase, inspected via direct queries (an earlier unauthenticated `/admin/evals` view was removed before release)
 
 ---
 

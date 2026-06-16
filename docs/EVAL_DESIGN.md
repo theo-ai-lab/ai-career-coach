@@ -4,6 +4,11 @@
 
 This document explains the evaluation system for the AI Career Coach — specifically, **why** these metrics were chosen, **how** they're measured, and **what tradeoffs** were made. The goal isn't just to score responses, but to define what "good career coaching" means in a way that's measurable and improvable.
 
+> **Models referenced in this repo — three distinct roles (don't conflate them):**
+> - **Live app generation** — `gpt-4o-mini` (temperature 0.2): what the deployed product runs to write responses today.
+> - **Current in-app eval judge** — `gpt-4o-mini` (temperature 0): the LLM-as-judge this document describes, scoring production responses today (also the judge behind the May 2026 red-team run).
+> - **Planned benchmark judges / council** — premium cross-vendor judges (illustrative IDs such as `claude-opus-4.7` / `claude-sonnet-4-6`, `gpt-5.4`, `gemini-3.1-pro`) reserved for the *offline* benchmark in [`data/eval-benchmark/`](../data/eval-benchmark/README.md). Those are planned/illustrative targets, not yet run — they do not score the live app.
+
 ### Policy alignment
 
 This product handles employment-adjacent advice — resume analysis, cover letters, career strategy — which falls under industry safety policy frameworks that require human-in-the-loop review and disclosure for resume screening and employment determinations. The eval benchmark plans adversarial coverage of this alignment — credentials-gap and uncomfortable-truth scenarios that stress-test model behavior against the HITL bright line. These are v4 targets; see [COVERAGE.md](../data/eval-benchmark/COVERAGE.md) for current case inventory and expansion plan.

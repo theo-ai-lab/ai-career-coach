@@ -1,10 +1,13 @@
 # AI Career Coach
 
-**Production AI career coaching platform with multi-agent orchestration, resume-grounded RAG, and a 4-dimension LLM-as-judge eval rubric.**
+**Working prototype (real users) — AI career coaching with multi-agent orchestration, resume-grounded RAG, and a 4-dimension LLM-as-judge eval rubric. Deployed on Vercel.**
 
 Built as a solo project to solve a real problem: career advice is either generic (ChatGPT) or expensive (human coaches). This platform delivers personalized, grounded career guidance using specialized AI agents that collaborate through a shared memory system.
 
-**57 users · 900+ queries · 4-dimension LLM-as-judge eval framework (v3 N=2, v4 target N=12 cross-vendor adversarial)** — see [COVERAGE.md](data/eval-benchmark/COVERAGE.md) for case inventory, [EVAL_DESIGN.md](docs/EVAL_DESIGN.md) for rubric.
+**Real users in production · a preregistered, falsifiable 4-dimension LLM-as-judge eval framework — N=6 cases on disk today (v3 scaffold), N=12 cross-vendor adversarial target (v4)** — see [COVERAGE.md](data/eval-benchmark/COVERAGE.md) for the canonical case inventory and [EVAL_DESIGN.md](docs/EVAL_DESIGN.md) for the rubric.
+
+<!-- Usage figures (approximately 57 users / 900+ queries as of May 2026) live in PostHog and Supabase and are not committed to this repo, so the headline does not lead with a hard, in-repo-unverifiable count. The owner can restore exact numbers here if they want to stand behind them publicly. -->
+
 
 
 [LinkedIn](https://linkedin.com/in/theobermudez) · [Architecture](docs/ARCHITECTURE.md) · [Decision Log](docs/DECISION_LOG.md) · [Eval Framework](docs/EVAL_DESIGN.md)
@@ -13,7 +16,7 @@ Built as a solo project to solve a real problem: career advice is either generic
 
 - [**Eval benchmark methodology**](data/eval-benchmark/README.md) — Three Gulfs anchoring, preregistered judge architecture, falsifiability conditions, cost budget. The methodology document.
 - [**Red-team findings (May 2026)**](data/eval-benchmark/red-team-observations.md) — 25 adversarial prompts run against production. 6 failed / 9 material / 5 minor / 5 none. Strongest finding: the live LLM-as-judge scored a clear false-confirmation 85/100 on `mr-02`, exposing a blind spot in the rubric itself.
-- [**PM Decision Memo**](data/eval-benchmark/PM_DECISION_MEMO.md) — preregistered three-way decision threshold for the production model migration (gpt-4o-mini → gpt-5.4-mini + gpt-5.5). Direction-of-effect is the gating signal; CI bounds are reported for transparency only. N=12.
+- [**Preregistration memo (decision pending data)**](data/eval-benchmark/PM_DECISION_MEMO.md) — a preregistered three-way decision threshold for a *planned* production model migration (gpt-4o-mini → a newer-generation model pair; the specific target IDs are illustrative and not finalized). Thresholds are fixed in advance; direction-of-effect is the gating signal, CI bounds are reported for transparency only. The run results are not yet authored — current grid is N=6, v4 target N=12.
 - [**Decision Log**](docs/DECISION_LOG.md) — 15 dated decisions with options-considered tables and implementation refs. Decisions 1-13 documented retroactively (see header note); Decisions 14-15 written contemporaneously. Example: Decision 14 (LLM-as-judge temperature 0) explains why eval reproducibility took precedence over generation diversity.
 
 ![App Screenshot](docs/screenshot.png)
@@ -138,8 +141,6 @@ app/
 ├── page.tsx                              # main UI: chat, upload, agent buttons, report download
 ├── layout.tsx                            # root layout
 ├── providers.tsx                         # PostHog provider
-├── admin/
-│   └── evals/page.tsx                    # eval dashboard (LLM-as-judge scores)
 └── api/
     ├── upload/route.ts                   # PDF → chunk → embed → store
     ├── query/route.ts                    # RAG retrieval → grounded generation (memory-aware)
@@ -153,10 +154,8 @@ app/
     │   ├── interview-prep/route.ts       # interview prep
     │   ├── strategy/route.ts             # 6-month strategy advisor (HITL flag)
     │   └── report/route.ts               # full report (LangGraph orchestration)
-    ├── evals/
-    │   └── coaching-quality/route.ts     # standalone LLM-as-judge endpoint
-    └── admin/
-        └── evals/route.ts                # backing API for the eval dashboard
+    └── evals/
+        └── coaching-quality/route.ts     # standalone LLM-as-judge endpoint
 
 components/
 ├── HITLWarning.tsx                       # human review banner for high-stakes outputs
@@ -237,7 +236,7 @@ Iterative prompt optimization, run as a standard scientific loop. Each cycle:
 1. Identify failure mode through eval scores and agent trace logs
 2. Form hypothesis about root cause (routing error vs. prompt gap vs. retrieval miss)
 3. Adjust the specific component (prompt, routing logic, retrieval threshold)
-4. Re-run eval suite across 200+ simulated user personas (Planned; on disk today: 3 personas. See [`data/eval-benchmark/README.md`](data/eval-benchmark/README.md) implementation status section.)
+4. Re-run eval suite across the planned 50-persona synthetic set (Planned; on disk today: 3 personas. See [`data/eval-benchmark/README.md`](data/eval-benchmark/README.md) implementation status section.)
 5. Measure delta — ship only if composite score improves without regression on any dimension
 
 Error budgets govern releases: if any eval dimension drops below threshold, the update doesn't ship.
