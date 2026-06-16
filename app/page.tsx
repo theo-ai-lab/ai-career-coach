@@ -1,7 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -31,11 +34,19 @@ export default function Home() {
 
   const [loading, setLoading] = useState(false);
 
-  const [currentResumeId, setCurrentResumeId] = useState<string | null>(
+  // Value is persisted to localStorage and read on send; only the setter is
+  // needed in render state.
+  const [, setCurrentResumeId] = useState<string | null>(
     typeof window !== "undefined"
       ? localStorage.getItem("currentResumeId")
       : null,
   );
+
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, loading]);
 
   const [sessionId, setSessionId] = useState<string | null>(
     typeof window !== "undefined" ? localStorage.getItem("sessionId") : null,
@@ -117,21 +128,27 @@ export default function Home() {
           </p>
         </div>
 
-        <ScrollArea className="flex-1 p-6">
+        <ScrollArea
+          className="flex-1 p-6"
+          role="log"
+          aria-live="polite"
+          aria-label="Conversation"
+        >
           {messages.length === 0 && (
             <div className="text-center text-slate-500 mt-20">
               <p className="text-lg">Try asking:</p>
 
               <p className="mt-2 italic">
-                "Summarize my educational background."
+                &ldquo;Summarize my educational background.&rdquo;
               </p>
 
               <p className="italic">
-                "Which of my past roles is closest to data engineering?"
+                &ldquo;Which of my past roles is closest to data
+                engineering?&rdquo;
               </p>
 
               <p className="italic">
-                "Walk me through the projects on my resume."
+                &ldquo;Walk me through the projects on my resume.&rdquo;
               </p>
             </div>
           )}
@@ -142,29 +159,44 @@ export default function Home() {
               className={`mb-4 ${m.role === "user" ? "text-right" : "text-left"}`}
             >
               <div
-                className={`inline-block p-3 rounded-lg max-w-md ${
+                className={`inline-block p-3 rounded-lg text-left ${
                   m.role === "user"
-                    ? "bg-blue-600 text-white"
-                    : "bg-slate-200 text-slate-800"
+                    ? "max-w-[85%] bg-blue-600 text-white"
+                    : "max-w-[90%] bg-slate-200 text-slate-800"
                 }`}
               >
-                {m.content}
+                {m.role === "assistant" ? (
+                  <div className="prose prose-sm prose-slate max-w-none break-words prose-p:my-2 prose-ul:my-2 prose-ol:my-2 prose-li:my-0.5 prose-headings:mt-3 prose-headings:mb-1">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                      {m.content}
+                    </ReactMarkdown>
+                  </div>
+                ) : (
+                  <span className="whitespace-pre-wrap break-words">
+                    {m.content}
+                  </span>
+                )}
               </div>
 
               {/* Low Confidence Warning (only when score < 75) */}
               {m.role === "assistant" && m.scores && m.scores.overall < 75 && (
-                <div className="mt-2 text-xs text-amber-600 flex items-center gap-1">
-                  <span>⚠️</span>
+                <div className="mt-2 text-xs text-amber-700 flex items-center gap-1">
+                  <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden />
                   <span>
-                    I'm less confident about this response. Consider verifying
-                    this information.
+                    I&apos;m less confident about this response. Consider
+                    verifying this information.
                   </span>
                 </div>
               )}
             </div>
           ))}
 
-          {loading && <p className="text-slate-500 italic">Thinking...</p>}
+          {loading && (
+            <p className="text-slate-500 italic" aria-live="polite">
+              Thinking...
+            </p>
+          )}
+          <div ref={messagesEndRef} />
         </ScrollArea>
 
         <div className="p-4 border-t">
@@ -218,9 +250,10 @@ export default function Home() {
                       description: data.error || "Unknown error",
                     });
                   }
-                } catch (err: any) {
+                } catch (err: unknown) {
                   toast.error("Upload failed", {
-                    description: err?.message ?? "Unknown error",
+                    description:
+                      err instanceof Error ? err.message : "Unknown error",
                   });
                 }
               }}
@@ -235,6 +268,7 @@ export default function Home() {
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && sendMessage()}
               placeholder="Ask about my experience..."
+              aria-label="Ask a question about the uploaded resume"
               className="flex-1"
               disabled={loading}
             />
