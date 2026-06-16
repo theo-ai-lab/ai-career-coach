@@ -96,7 +96,7 @@ export async function POST(req: NextRequest) {
     if (error) throw error;
 
     return Response.json({ success: true, resumeId, chunks: chunks.length });
-  } catch (error: any) {
+  } catch (error: unknown) {
     // Log the full error server-side. Do NOT echo error.message to the
     // client — it can leak Supabase/OpenAI internals (table names, RPC
     // signatures, auth details). Security hardening 2026-05-12.

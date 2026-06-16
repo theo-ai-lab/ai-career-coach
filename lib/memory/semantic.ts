@@ -38,8 +38,9 @@ export async function getUserProfile(userId: string): Promise<UserProfile | null
     }
     
     return data;
-  } catch (error: any) {
-    console.warn('[Memory] Error fetching profile:', error.message);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn('[Memory] Error fetching profile:', message);
     return null;
   }
 }
@@ -60,7 +61,8 @@ export async function upsertUserProfile(profile: UserProfile): Promise<void> {
     } else {
       console.log('[Memory] Profile updated for user:', profile.user_id);
     }
-  } catch (error: any) {
-    console.warn('[Memory] Error upserting profile:', error.message);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn('[Memory] Error upserting profile:', message);
   }
 }

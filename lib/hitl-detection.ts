@@ -55,7 +55,7 @@ export function detectHighStakes(content: string): boolean {
  * @param data - Object or string to analyze
  * @returns true if high-stakes content is detected
  */
-export function detectHighStakesInData(data: any): boolean {
+export function detectHighStakesInData(data: unknown): boolean {
   if (!data) return false;
   
   // Convert to string if it's an object

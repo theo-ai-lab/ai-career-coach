@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { getSupabase } from "@/lib/supabase";
 import { getChatClient, getEmbeddings } from "@/lib/rag";
-import { getMemoryContext, summarizeSessionAsync } from "@/lib/memory";
+import {
+  getMemoryContext,
+  summarizeSessionAsync,
+  type MemoryContext,
+} from "@/lib/memory";
 import { evaluateCoachingQuality } from "@/lib/evals/coaching-quality";
 
 export async function POST(req: NextRequest) {
@@ -34,11 +38,7 @@ export async function POST(req: NextRequest) {
     const userId = resumeId;
     const currentSessionId = sessionId || randomUUID();
 
-    let memoryContext: {
-      profile: any;
-      recentSessions: any[];
-      formattedContext: string;
-    };
+    let memoryContext: MemoryContext;
     if (skipMemory) {
       memoryContext = {
         profile: null,
@@ -48,10 +48,12 @@ export async function POST(req: NextRequest) {
     } else {
       try {
         memoryContext = await getMemoryContext(userId);
-      } catch (memoryError: any) {
+      } catch (memoryError: unknown) {
         console.warn(
           "[Memory] Failed to retrieve memory context:",
-          memoryError.message,
+          memoryError instanceof Error
+            ? memoryError.message
+            : String(memoryError),
         );
         memoryContext = {
           profile: null,
@@ -143,12 +145,18 @@ Do NOT say "According to my memory" or "My records show" - be natural.`;
           reasoning: evalResult.reasoning,
           overall_score: evalResult.overall,
         });
-      } catch (dbError: any) {
-        console.warn("[Eval] Failed to store eval:", dbError.message);
+      } catch (dbError: unknown) {
+        console.warn(
+          "[Eval] Failed to store eval:",
+          dbError instanceof Error ? dbError.message : String(dbError),
+        );
         // Don't fail if DB write fails
       }
-    } catch (evalError: any) {
-      console.warn("[Eval] Failed to evaluate response:", evalError.message);
+    } catch (evalError: unknown) {
+      console.warn(
+        "[Eval] Failed to evaluate response:",
+        evalError instanceof Error ? evalError.message : String(evalError),
+      );
       // Continue without scores if evaluation fails
     }
 
@@ -190,7 +198,7 @@ Do NOT say "According to my memory" or "My records show" - be natural.`;
           }
         : null,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     // Log the full error server-side. Do NOT echo error.message to the
     // client — it can leak Supabase/OpenAI internals (table names, RPC
     // signatures, auth details). Security hardening 2026-05-12.

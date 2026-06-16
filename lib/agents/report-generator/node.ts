@@ -1,6 +1,8 @@
 import { synthesizeCareerReport } from "@/lib/agents/synthesizer/node";
 
-export async function generateReport(data: any) {
+export async function generateReport(
+  data: Parameters<typeof synthesizeCareerReport>[0],
+) {
   const report = synthesizeCareerReport(data);
 
   const markdown = `
@@ -23,7 +25,7 @@ ${report.coverLetter.letter}
 ## Interview Preparation (10 Questions)
 ${report.interviewPrep.behavioral
   .map(
-    (q: any) =>
+    (q) =>
       `**Q:** ${q.question}\n**A:** ${q.answer}`
   )
   .join("\n\n")}
@@ -31,7 +33,7 @@ ${report.interviewPrep.behavioral
 ## 6-Month Strategy Plan
 ${report.strategyPlan.monthlyBreakdown
   .map(
-    (m: any) =>
+    (m) =>
       `### Month ${m.month}: ${m.focus}\n${m.keyMilestones
         .map((km: string) => `- ${km}`)
         .join("\n")}`

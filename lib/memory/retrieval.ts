@@ -41,8 +41,9 @@ export async function getMemoryContext(userId: string): Promise<MemoryContext> {
     }
     
     return { profile, recentSessions, formattedContext };
-  } catch (error: any) {
-    console.warn('[Memory] Error retrieving memory context:', error.message);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn('[Memory] Error retrieving memory context:', message);
     return { profile: null, recentSessions: [], formattedContext: '' };
   }
 }

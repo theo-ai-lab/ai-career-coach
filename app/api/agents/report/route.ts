@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
       jobDescription: jobDescription?.trim() || undefined,
     };
 
-    const result: any = await reportGraph.invoke(initialState);
+    const result = await reportGraph.invoke(initialState);
 
     // Check for errors in result
     if (result.error) {
@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
       status: 200,
       headers: { "Content-Type": "text/markdown; charset=utf-8" },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     // Log the full error server-side. Do NOT echo error.message to the
     // client — it can leak Supabase/OpenAI internals (table names, RPC
     // signatures, auth details). Security hardening 2026-05-12.

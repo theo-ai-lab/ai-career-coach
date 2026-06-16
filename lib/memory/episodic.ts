@@ -34,8 +34,9 @@ export async function getRecentSessions(userId: string, limit: number = 5): Prom
     }
     
     return data || [];
-  } catch (error: any) {
-    console.warn('[Memory] Error fetching sessions:', error.message);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn('[Memory] Error fetching sessions:', message);
     return [];
   }
 }
@@ -111,8 +112,9 @@ Return JSON:
       } else {
         console.log('[Memory] Session summarized:', sessionId);
       }
-    } catch (err: any) {
-      console.warn('[Memory] Session summarization failed:', err.message);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.warn('[Memory] Session summarization failed:', message);
     }
   })().catch(err => {
     // Silently handle any uncaught errors in fire-and-forget

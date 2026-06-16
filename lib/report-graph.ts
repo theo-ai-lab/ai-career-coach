@@ -23,12 +23,67 @@
 
 import { StateGraph, START, END, Annotation } from '@langchain/langgraph';
 import { getResumeContextById, getChatClient } from '@/lib/rag';
-import { evaluateCoachingQuality } from '@/lib/evals/coaching-quality';
+import {
+  evaluateCoachingQuality,
+  type CoachingQualityOutput,
+} from '@/lib/evals/coaching-quality';
 import { getSupabase } from '@/lib/supabase';
 
 const log = process.env.NODE_ENV !== 'production'
   ? (...args: unknown[]) => console.log('[report-graph]', ...args)
   : () => {};
+
+/**
+ * Shapes of the JSON payloads each LLM node is prompted to return. The
+ * prompts pin these structures explicitly, so we model them as concrete
+ * interfaces (validated downstream) rather than leaning on `any`.
+ */
+interface ResumeAnalysisResult {
+  summary: string;
+  keyStrengths: string[];
+  notableProjects: string[];
+  coreSkills: string[];
+}
+
+interface GapAnalysisResult {
+  roleFitScore: number;
+  missingTechnicalSkills: string[];
+  missingProductSkills: string[];
+  experienceGaps: string[];
+  recommendations: string[];
+}
+
+interface JobMatchingResult {
+  matchScore: number;
+  strongMatches: string[];
+  gaps: string[];
+  keywordsToAdd: string[];
+  talkingPoints: string[];
+}
+
+interface QuestionAnswer {
+  question: string;
+  answer: string;
+}
+
+interface InterviewPrepResult {
+  behavioral: QuestionAnswer[];
+  product: QuestionAnswer[];
+  technical: QuestionAnswer[];
+  metaSummary: string;
+}
+
+interface MonthlyPlan {
+  month: number;
+  focus: string;
+  actions: string[];
+}
+
+interface StrategyPlanResult {
+  sixMonthGoal: string;
+  monthlyBreakdown: MonthlyPlan[];
+  finalRecommendation: string;
+}
 
 /**
  * State definition for the report generation graph.
@@ -48,19 +103,19 @@ const ReportStateAnnotation = Annotation.Root({
 
   // Intermediate data
   resumeContext: Annotation<string[] | undefined>(),
-  resumeAnalysis: Annotation<any>(),
-  gapAnalysis: Annotation<any>(),
-  jobMatching: Annotation<any>(),
+  resumeAnalysis: Annotation<ResumeAnalysisResult | undefined>(),
+  gapAnalysis: Annotation<GapAnalysisResult | undefined>(),
+  jobMatching: Annotation<JobMatchingResult | undefined>(),
   coverLetter: Annotation<string | undefined>(),
-  interviewPrep: Annotation<any>(),
-  strategyPlan: Annotation<any>(),
+  interviewPrep: Annotation<InterviewPrepResult | undefined>(),
+  strategyPlan: Annotation<StrategyPlanResult | undefined>(),
 
   // Evaluation results
-  resumeAnalysisEval: Annotation<any>(),
-  gapAnalysisEval: Annotation<any>(),
-  coverLetterEval: Annotation<any>(),
-  interviewPrepEval: Annotation<any>(),
-  strategyPlanEval: Annotation<any>(),
+  resumeAnalysisEval: Annotation<CoachingQualityOutput | null | undefined>(),
+  gapAnalysisEval: Annotation<CoachingQualityOutput | null | undefined>(),
+  coverLetterEval: Annotation<CoachingQualityOutput | null | undefined>(),
+  interviewPrepEval: Annotation<CoachingQualityOutput | null | undefined>(),
+  strategyPlanEval: Annotation<CoachingQualityOutput | null | undefined>(),
 
   // Final output
   reportMarkdown: Annotation<string | undefined>(),
@@ -74,21 +129,22 @@ type ReportState = typeof ReportStateAnnotation.State;
 /**
  * Helper to safely parse JSON from LLM responses
  */
-function parseJsonResponse(content: string, stepName: string): any {
+function parseJsonResponse<T>(content: string, stepName: string): T {
   try {
     let cleaned = content.trim();
     if (cleaned.startsWith('```')) {
       cleaned = cleaned.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '');
     }
-    
+
     const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
       throw new Error(`No JSON object found in response`);
     }
-    
-    return JSON.parse(jsonMatch[0]);
-  } catch (error: any) {
-    throw new Error(`Failed to parse ${stepName} from model response: ${error.message}`);
+
+    return JSON.parse(jsonMatch[0]) as T;
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Failed to parse ${stepName} from model response: ${message}`);
   }
 }
 
@@ -101,7 +157,7 @@ async function evaluateResponse(
   response: string,
   contexts: string[],
   responseId: string
-): Promise<any | null> {
+): Promise<CoachingQualityOutput | null> {
   try {
     const evalResult = await evaluateCoachingQuality({
       query,
@@ -121,13 +177,15 @@ async function evaluateResponse(
         reasoning: evalResult.reasoning,
         overall_score: evalResult.overall,
       });
-    } catch (dbError: any) {
-      console.error(`Failed to store eval for ${sectionName}:`, dbError.message);
+    } catch (dbError: unknown) {
+      const message = dbError instanceof Error ? dbError.message : String(dbError);
+      console.error(`Failed to store eval for ${sectionName}:`, message);
     }
 
     return evalResult;
-  } catch (error: any) {
-    console.error(`Eval error for ${sectionName}:`, error.message);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`Eval error for ${sectionName}:`, message);
     return null;
   }
 }
@@ -139,11 +197,10 @@ async function resumeContextNode(state: ReportState): Promise<Partial<ReportStat
   try {
     log('retrieving resume context for', state.resumeId);
     const result = await getResumeContextById(state.resumeId, 12);
-    const resumeContext = result.chunks.join('\n\n');
     log('retrieved', result.chunks.length, 'chunks');
     return { resumeContext: result.chunks };
-  } catch (error: any) {
-    if (error.message?.includes('No documents found for resumeId')) {
+  } catch (error: unknown) {
+    if (error instanceof Error && error.message?.includes('No documents found for resumeId')) {
       throw new Error('No resume chunks found for the provided resumeId. Please upload a resume again.');
     }
     throw error;
@@ -192,7 +249,7 @@ Additional formatting constraints:
 - When data is unclear or missing, use "insufficient data" or an empty array instead of hallucinating.`;
 
     const response = await llm.invoke(prompt);
-    const resumeAnalysis = parseJsonResponse(response.content.toString(), 'resume analysis');
+    const resumeAnalysis = parseJsonResponse<ResumeAnalysisResult>(response.content.toString(), 'resume analysis');
     
     if (!resumeAnalysis.summary) {
       throw new Error('Missing summary in resumeAnalysis');
@@ -209,8 +266,9 @@ Additional formatting constraints:
     
     log('resumeAnalysis done');
     return { resumeAnalysis, resumeAnalysisEval };
-  } catch (error: any) {
-    throw new Error(`Resume analysis failed: ${error.message}`);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Resume analysis failed: ${message}`);
   }
 }
 
@@ -258,7 +316,7 @@ Additional formatting constraints:
 - Use "insufficient data" when the job description or resume analysis does not clearly support a detailed statement.`;
 
     const response = await llm.invoke(prompt);
-    const gapAnalysis = parseJsonResponse(response.content.toString(), 'gap analysis');
+    const gapAnalysis = parseJsonResponse<GapAnalysisResult>(response.content.toString(), 'gap analysis');
     
     // Evaluate
     const gapAnalysisEval = await evaluateResponse(
@@ -271,8 +329,9 @@ Additional formatting constraints:
     
     log('gapAnalysis done');
     return { gapAnalysis, gapAnalysisEval };
-  } catch (error: any) {
-    throw new Error(`Gap analysis failed: ${error.message}`);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Gap analysis failed: ${message}`);
   }
 }
 
@@ -320,12 +379,13 @@ Additional formatting rules:
 - If something is unclear from the resume, prefer "insufficient data" over hallucinating.`;
 
     const response = await llm.invoke(prompt);
-    const jobMatching = parseJsonResponse(response.content.toString(), 'job matching');
+    const jobMatching = parseJsonResponse<JobMatchingResult>(response.content.toString(), 'job matching');
     
     log('jobMatching done');
     return { jobMatching };
-  } catch (error: any) {
-    throw new Error(`Job matching failed: ${error.message}`);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Job matching failed: ${message}`);
   }
 }
 
@@ -380,8 +440,9 @@ Return ONLY the markdown cover letter text (no JSON wrapper).`;
     
     log('coverLetter done');
     return { coverLetter, coverLetterEval };
-  } catch (error: any) {
-    throw new Error(`Cover letter generation failed: ${error.message}`);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Cover letter generation failed: ${message}`);
   }
 }
 
@@ -434,7 +495,7 @@ Additional requirements:
 - Return ONLY valid JSON, no markdown formatting or additional text.`;
 
     const response = await llm.invoke(prompt);
-    const interviewPrep = parseJsonResponse(response.content.toString(), 'interview prep');
+    const interviewPrep = parseJsonResponse<InterviewPrepResult>(response.content.toString(), 'interview prep');
     
     // Evaluate
     const interviewPrepEval = await evaluateResponse(
@@ -447,8 +508,9 @@ Additional requirements:
     
     log('interviewPrep done');
     return { interviewPrep, interviewPrepEval };
-  } catch (error: any) {
-    throw new Error(`Interview prep generation failed: ${error.message}`);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Interview prep generation failed: ${message}`);
   }
 }
 
@@ -498,7 +560,7 @@ Additional formatting constraints:
 - Ensure the plan accounts for the candidate's existing strengths and does not ask them to start from zero in areas where they already have experience.`;
 
     const response = await llm.invoke(prompt);
-    const strategyPlan = parseJsonResponse(response.content.toString(), 'strategy plan');
+    const strategyPlan = parseJsonResponse<StrategyPlanResult>(response.content.toString(), 'strategy plan');
     
     // Evaluate
     const strategyPlanEval = await evaluateResponse(
@@ -511,8 +573,9 @@ Additional formatting constraints:
     
     log('strategyPlan done');
     return { strategyPlan, strategyPlanEval };
-  } catch (error: any) {
-    throw new Error(`Strategy plan generation failed: ${error.message}`);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Strategy plan generation failed: ${message}`);
   }
 }
 
@@ -523,7 +586,7 @@ async function compileReportNode(state: ReportState): Promise<Partial<ReportStat
   try {
     log('compiling final report');
     
-    const formatConfidence = (evalResult: any, sectionName: string): string => {
+    const formatConfidence = (evalResult: CoachingQualityOutput | null | undefined, sectionName: string): string => {
       if (!evalResult) return '';
       const score = evalResult.overall;
       const emoji = score >= 80 ? '🟢' : score >= 60 ? '🟡' : '🔴';
@@ -604,15 +667,15 @@ ${state.coverLetter!}${formatConfidence(state.coverLetterEval, 'Cover Letter')}
 
 ### Behavioral Questions
 
-${state.interviewPrep!.behavioral.map((qa: any) => `**Q:** ${qa.question}\n\n**A:** ${qa.answer}\n`).join('\n')}
+${state.interviewPrep!.behavioral.map((qa: QuestionAnswer) => `**Q:** ${qa.question}\n\n**A:** ${qa.answer}\n`).join('\n')}
 
 ### Product Questions
 
-${state.interviewPrep!.product.map((qa: any) => `**Q:** ${qa.question}\n\n**A:** ${qa.answer}\n`).join('\n')}
+${state.interviewPrep!.product.map((qa: QuestionAnswer) => `**Q:** ${qa.question}\n\n**A:** ${qa.answer}\n`).join('\n')}
 
 ### Technical Questions
 
-${state.interviewPrep!.technical.map((qa: any) => `**Q:** ${qa.question}\n\n**A:** ${qa.answer}\n`).join('\n')}
+${state.interviewPrep!.technical.map((qa: QuestionAnswer) => `**Q:** ${qa.question}\n\n**A:** ${qa.answer}\n`).join('\n')}
 
 ### Interview Strategy Summary
 
@@ -626,7 +689,7 @@ ${state.strategyPlan!.sixMonthGoal}
 
 ### Monthly Breakdown
 
-${state.strategyPlan!.monthlyBreakdown.map((m: any) => `#### Month ${m.month}: ${m.focus}\n\n${m.actions.map((a: string) => `- ${a}`).join('\n')}`).join('\n\n')}
+${state.strategyPlan!.monthlyBreakdown.map((m: MonthlyPlan) => `#### Month ${m.month}: ${m.focus}\n\n${m.actions.map((a: string) => `- ${a}`).join('\n')}`).join('\n\n')}
 
 ### Final Recommendation
 
@@ -644,14 +707,13 @@ ${[
   state.coverLetterEval && `**Cover Letter:** ${state.coverLetterEval.overall}/100`,
   state.interviewPrepEval && `**Interview Prep:** ${state.interviewPrepEval.overall}/100`,
   state.strategyPlanEval && `**Strategy Plan:** ${state.strategyPlanEval.overall}/100`,
-].filter(Boolean).join('\n')}
-
-*View detailed evaluations at /admin/evals*`;
+].filter(Boolean).join('\n')}`;
 
     log('final report compiled');
     return { reportMarkdown };
-  } catch (error: any) {
-    throw new Error(`Report compilation failed: ${error.message}`);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Report compilation failed: ${message}`);
   }
 }
 

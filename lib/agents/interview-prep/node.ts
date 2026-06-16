@@ -1,13 +1,15 @@
 import { ChatOpenAI } from "@langchain/openai";
 import { InterviewPrepSchema } from "./schema";
+import { ResumeAnalysis } from "@/lib/agents/resume-analyzer/schema";
+import { GapAnalysis } from "@/lib/agents/gap-finder/schema";
 
 function getLLM() {
   return new ChatOpenAI({ model: "gpt-4o", temperature: 0.2 });
 }
 
 export async function generateInterviewPrep(
-  resumeAnalysis: any,
-  gapAnalysis: any,
+  resumeAnalysis: ResumeAnalysis,
+  gapAnalysis: GapAnalysis,
   jobDescription: string,
   company: string
 ) {

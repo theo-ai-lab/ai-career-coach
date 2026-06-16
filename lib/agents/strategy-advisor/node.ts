@@ -1,13 +1,15 @@
 import { ChatOpenAI } from "@langchain/openai";
 import { StrategyPlanSchema } from "./schema";
+import { ResumeAnalysis } from "@/lib/agents/resume-analyzer/schema";
+import { GapAnalysis } from "@/lib/agents/gap-finder/schema";
 
 function getLLM() {
   return new ChatOpenAI({ model: "gpt-4o", temperature: 0.3 });
 }
 
 export async function generateStrategy(
-  resumeAnalysis: any,
-  gapAnalysis: any,
+  resumeAnalysis: ResumeAnalysis,
+  gapAnalysis: GapAnalysis,
   targetCompany: string
 ) {
   const resumeJson = JSON.stringify(resumeAnalysis, null, 2);
