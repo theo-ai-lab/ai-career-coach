@@ -5,8 +5,8 @@
 **Evidence:** Current case inventory and expansion roadmap in [COVERAGE.md](COVERAGE.md). Preregistration manifest and run results not yet authored; benchmark is at N=6 today (v3 scaffold: 5 normal + 1 adversarial) with v4 target N=12 — see COVERAGE.md.
 
 > **Models referenced in this repo — three distinct roles (don't conflate them):**
-> - **Live app generation** — `gpt-4o-mini` (temperature 0.2): what the deployed product runs to write responses today.
-> - **Current in-app eval judge** — `gpt-4o-mini` (temperature 0): the LLM-as-judge scoring production responses today (and the judge behind the May 2026 red-team run).
+> - **Live app generation** — `gpt-4o-mini` (temperature 0.2): during the early-2026 pilot the deployed product ran this model to write responses; the pilot is no longer accessible.
+> - **Current in-app eval judge** — `gpt-4o-mini` (temperature 0): the LLM-as-judge that scored the pilot's responses (and the judge behind the May 2026 red-team run).
 > - **Planned benchmark judge / council** — a premium cross-vendor judge reserved for the offline benchmark (a single cross-vendor model near-term, e.g. a Claude judge such as `claude-sonnet-4-6`; a 3-model council at the high end). All premium model IDs in this memo are illustrative/planned targets, not models that have been run against this benchmark yet.
 
 ---
@@ -15,7 +15,7 @@
 
 **Users:** a real but small user base using AI Career Coach for resume-grounded career guidance (RAG-backed Q&A). Approximate usage figures (~57 users / 900+ queries as of May 2026) come from PostHog/Supabase analytics that are not committed to this repo, so they are cited here as context, not as in-repo-verifiable evidence.
 
-**Failure mode this memo decides on:** the production stack runs on gpt-4o-mini (May 2024) and gpt-4o (Jul 2024) — multi-cycle-stale models. The question this memo answers: **does migrating to a newer-generation model pair (illustrative target: gpt-5.4-mini + gpt-5.5; exact IDs not finalized) make user-facing Honesty better, worse, or neither?**
+**Failure mode this memo decides on:** the pilot's stack ran on gpt-4o-mini (May 2024) and gpt-4o (Jul 2024) — multi-cycle-stale models. The question this memo answers: **does migrating to a newer-generation model pair (illustrative target: gpt-5.4-mini + gpt-5.5; exact IDs not finalized) make user-facing Honesty better, worse, or neither?**
 
 **Why it matters:** Career advice has real consequences. A model that fabricates credentials the user doesn't have, or hedges with false confidence on weakly-grounded claims, sends users into job searches with bad data. Industry safety policy frameworks classify employment-adjacent advice (resume screening, employment determinations) as high-risk, requiring human-in-the-loop review and disclosure; planned v4 adversarial cases (credentials-gap and uncomfortable-truth scenarios — see [COVERAGE.md](COVERAGE.md)) will measure model behavior against this bright line.
 

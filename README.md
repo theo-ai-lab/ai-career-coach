@@ -1,12 +1,10 @@
 # AI Career Coach
 
-**Working prototype (real users) — AI career coaching with multi-agent orchestration, resume-grounded RAG, and a 4-dimension LLM-as-judge eval rubric. Deployed on Vercel.**
+**Prototype — AI career coaching with multi-agent orchestration, resume-grounded RAG, and a 4-dimension LLM-as-judge eval rubric. A Vercel frontend is live, but the early-2026 pilot's backend is no longer accessible. The early-2026 pilot analytics are no longer accessible, so the adversarial eval (not usage metrics) is the evidence here.**
 
 Built as a solo project to solve a real problem: career advice is either generic (ChatGPT) or expensive (human coaches). This platform delivers personalized, grounded career guidance using specialized AI agents that collaborate through a shared memory system.
 
-**57 users · 900+ queries · a preregistered, falsifiable 4-dimension LLM-as-judge eval framework — N=6 cases on disk today (v3 scaffold), N=12 cross-vendor adversarial target (v4)** — see [COVERAGE.md](data/eval-benchmark/COVERAGE.md) for the canonical case inventory and [EVAL_DESIGN.md](docs/EVAL_DESIGN.md) for the rubric.
-
-<!-- Usage figures (57 users / 900+ queries, early-2026 pilot) are real — measured in PostHog/Supabase during the live pilot. The analytics lived in a USC-tied account that is no longer accessible, so the raw export can't be re-shared and isn't reconstructable from this repo. -->
+**A preregistered, falsifiable 4-dimension LLM-as-judge eval framework — N=6 cases on disk today (v3 scaffold), N=12 cross-vendor adversarial target (v4)** — see [COVERAGE.md](data/eval-benchmark/COVERAGE.md) for the canonical case inventory and [EVAL_DESIGN.md](docs/EVAL_DESIGN.md) for the rubric. *(An early-2026 pilot ran with ~57 users / 900+ queries; those analytics lived in an account that is no longer accessible and can't be re-verified from this repo — see the note below. The committed adversarial eval, not usage metrics, is the evidence here.)*
 
 
 
@@ -27,7 +25,7 @@ Built as a solo project to solve a real problem: career advice is either generic
 
 Built solo from November 2025 onward. Three architectural milestones live in the public commit log: working RAG with grounded retrieval (Nov 2025), LLM-as-judge evaluation and three-layer memory system (Dec 2025), and multi-agent LangGraph orchestration with HITL detection (Dec 2025). Full architecture decisions in [docs/DECISION_LOG.md](docs/DECISION_LOG.md), evaluation methodology in [docs/EVAL_DESIGN.md](docs/EVAL_DESIGN.md).
 
-This is a working prototype with a real user base. Analytics (query volume, eval scores) live in PostHog and Supabase — those data sources are not committed to the repo. There is no auth, rate limiting, or end-to-end outcome tracking yet — those are planned, not built.
+This is a prototype: a Vercel frontend is live, but the early-2026 pilot's backend is no longer accessible. An early-2026 pilot ran with real users, but its analytics (query volume, eval scores) lived in a PostHog/Supabase account that is no longer accessible — so those usage numbers can't be re-verified from this repo, and the committed adversarial eval is the evidence here. There is no auth, rate limiting, or end-to-end outcome tracking yet — those are planned, not built.
 
 Known failure modes surfaced by the red-team (May 2026) — including a cross-conversation memory leak in `/api/query` traced to `userId = resumeId` aliasing — are documented in [`data/eval-benchmark/red-team-observations.md`](data/eval-benchmark/red-team-observations.md) and partially mitigated. The fix shipped behind a `skipMemory: true` request-body flag (see `app/api/query/route.ts` and the comment block at lines 28-33) so eval runs get clean stateless responses without changing default behavior for real users.
 
@@ -90,7 +88,7 @@ The agent layer runs as a LangGraph `StateGraph` (see `lib/report-graph.ts`):
 | **Strategy Advisor** | 6-month strategy plan with monthly breakdown | `generateStrategy`, `strategyPlanNode` |
 | **Report Compiler** | Aggregate all outputs into a final markdown report | `compileReportNode` |
 
-Routing uses one conditional edge: job-matching runs only when a job description is provided. The rest of the graph executes sequentially with parallel branches for interview prep + strategy plan. High-stakes outputs (cover letters, career pivots) trigger a UI-level human review gate via `lib/hitl-detection.ts` — the user is alerted before relying on the output.
+Routing uses one conditional edge: job-matching runs only when a job description is provided. The rest of the graph executes sequentially with parallel branches for interview prep + strategy plan. High-stakes outputs (cover letters, career pivots) are flagged by `lib/hitl-detection.ts` (`detectHighStakes` returns a boolean that the cover-letter and strategy routes set on the response). Surfacing that flag as a UI review banner is **not yet wired** — today it is a flag on the response, not an enforced gate.
 
 ### Evaluation Framework
 Every query-response pair runs through an async LLM-as-judge evaluation (see `lib/evals/coaching-quality.ts`):
@@ -138,14 +136,12 @@ Three-layer architecture with different retention and retrieval patterns:
 
 ```
 app/
-├── page.tsx                              # main UI: chat, upload, agent buttons, report download
+├── page.tsx                              # main UI: chat box + resume upload (calls /api/query + /api/upload)
 ├── layout.tsx                            # root layout
 ├── providers.tsx                         # PostHog provider
 └── api/
     ├── upload/route.ts                   # PDF → chunk → embed → store
     ├── query/route.ts                    # RAG retrieval → grounded generation (memory-aware)
-    ├── ingest/route.ts                   # generic document ingestion
-    ├── debug/route.ts                    # debug helper
     ├── agents/
     │   ├── resume/route.ts               # resume analyzer
     │   ├── gap/route.ts                  # gap finder
@@ -158,7 +154,6 @@ app/
         └── coaching-quality/route.ts     # standalone LLM-as-judge endpoint
 
 components/
-├── HITLWarning.tsx                       # human review banner for high-stakes outputs
 └── ui/                                   # shadcn primitives (button, card, input, scroll-area)
 
 lib/
@@ -225,7 +220,7 @@ Requires Supabase project with pgvector extension enabled. SQL setup files at re
 | **Async eval (fire-and-forget)** | Zero latency impact on user experience — eval runs after response delivery |
 | **Three-layer memory** | Different information types need different retention policies and retrieval patterns |
 | **Temperature 0.2 for generation** | Prioritizes factual grounding over creative responses — career advice should be reliable, not novel |
-| **UI-level human review on high-stakes** | Cover letters and career-pivot advice carry real consequences — `lib/hitl-detection.ts` flags the response and surfaces a review banner so the user reads with appropriate caution |
+| **High-stakes detection (flag)** | Cover letters and career-pivot advice carry real consequences — `lib/hitl-detection.ts` flags the response with a `highStakes` boolean; surfacing that flag in the UI is planned, not yet wired |
 
 ---
 
@@ -243,4 +238,4 @@ Error budgets govern releases: if any eval dimension drops below threshold, the 
 
 ---
 
-*Built by [Theo Bermudez](https://linkedin.com/in/theobermudez) · USC Marshall & Viterbi '24*
+*Built by [Theo Bermudez](https://linkedin.com/in/theobermudez)*

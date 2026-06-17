@@ -1,9 +1,11 @@
 # Production Security Verification
 
+> **Historical record — early-2026 pilot.** This document describes the production Supabase setup of the early-2026 pilot. That pilot backend is no longer accessible, so nothing below describes a currently live production system; it is retained as a record of the security verification performed at the time.
+
 ## Verification Date / Operator / Result
 
 - Date verified: 2026-05-16
-- Operator: Manual Supabase SQL Editor apply; live verification performed after apply
+- Operator: Manual Supabase SQL Editor apply; verification was performed against the pilot project after apply
 - Supabase project/environment: Production
 - SQL files applied: Manual remediation matching `05-supabase-fix.sql` / `04-supabase-evals.sql` posture plus table grant revokes
 - Smoke tests run: Upload, unique phrase retrieval, role/skill-gap grounded answer, avoid-path grounded answer
@@ -12,7 +14,7 @@
 
 ## Purpose And Scope
 
-Use this runbook to verify that the live Supabase production project matches the repository security posture for RLS, policies, grants, and vector-search RPC access.
+This runbook was used to verify that the early-2026 pilot's Supabase production project matched the repository security posture for RLS, policies, grants, and vector-search RPC access.
 
 This is a verification runbook only. It does not require app-code changes.
 
@@ -262,7 +264,7 @@ Stop and record the failing check in the fill-in section at the top of this docu
 
 Do not paste secrets, raw tokens, or screenshots with visible keys into the issue.
 
-If live SQL does not match the repo posture, reapply the repo SQL files only through an approved operational path and in alphabetical order:
+If the pilot's SQL did not match the repo posture, the repo SQL files were reapplied only through an approved operational path and in alphabetical order:
 
 ```text
 01-supabase-documents.sql
@@ -276,7 +278,7 @@ After applying SQL, rerun all SQL verification queries and production smoke test
 
 ## Latest Production Verification
 
-Production remediation was manually applied through the Supabase SQL Editor and verified live.
+Production remediation was manually applied through the Supabase SQL Editor and verified against the pilot project at the time.
 
 Verified posture:
 
@@ -299,4 +301,3 @@ Post-remediation smoke tests passed:
 ## Current Known Gaps
 
 - Stale `match_documents` v1 docs/types references were cleaned up on 2026-05-16; intentional v1-absence verification references remain.
-- `scripts/ingest.ts` uses the anon key for document inserts, which is inconsistent with the service-role-only `documents` posture.

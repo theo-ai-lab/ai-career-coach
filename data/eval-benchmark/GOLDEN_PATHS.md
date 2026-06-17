@@ -21,7 +21,7 @@ Out of scope for Phase 1:
 - New personas or resume fixtures.
 - Changes to the benchmark runner.
 - Cross-model or embedding-model comparison.
-- Production SQL, Supabase access, or live deployment checks.
+- Production SQL, Supabase access, or checks against a live deployment (the early-2026 pilot is no longer accessible).
 
 ## Mapping To Runnable Cases Later
 

@@ -2,7 +2,7 @@
 
 **Version:** 3.0
 **Last Updated:** May 2026
-**Status:** Deployed to Vercel.
+**Status:** Prototype — a Vercel frontend is live, but the early-2026 pilot's backend is no longer accessible
 
 ---
 
@@ -27,8 +27,8 @@ AI Career Coach is a RAG-powered career coaching application that provides perso
 ├─────────────────────────────────────────────────────────────────────┤
 │  Next.js Frontend (React 19 + Tailwind CSS + shadcn/ui)             │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐                 │
-│  │ Chat UI     │  │ File Upload │  │ Agent Buttons│                 │
-│  │             │  │             │  │             │                 │
+│  │ Chat UI     │  │ File Upload │  │ Agent UI    │                 │
+│  │             │  │             │  │ (planned)   │                 │
 │  │ - Messages  │  │ - PDF input │  │ - Cover Ltr │                 │
 │  │ - Session   │  │ - Progress  │  │ - Interview │                 │
 │  │ - Memory    │  │             │  │ - Strategy  │                 │
@@ -44,7 +44,6 @@ AI Career Coach is a RAG-powered career coaching application that provides perso
 │  │ Core Routes                                                   │   │
 │  │ POST /api/upload    - PDF parsing, chunking, embedding        │   │
 │  │ POST /api/query     - RAG retrieval + generation + memory     │   │
-│  │ POST /api/ingest    - Alternative ingestion (legacy)          │   │
 │  └──────────────────────────────────────────────────────────────┘   │
 │  ┌──────────────────────────────────────────────────────────────┐   │
 │  │ Agent Routes (7 specialized agents)                           │   │
@@ -363,7 +362,7 @@ Response Generated
 
 **RPC Function:**
 - `match_documents_v2(query_embedding vector, match_count int, p_resume_id text, p_user_id text)` → Canonical scoped vector search returning top-K similar documents with similarity scores
-- `match_documents` v1 is absent in production.
+- `match_documents` v1 was absent in the pilot's production database.
 
 ---
 
@@ -461,7 +460,7 @@ Response Generated
 | **Text Splitting** | LangChain | RecursiveCharacterTextSplitter |
 | **Orchestration** | LangGraph | 1.0.2 (for multi-agent) |
 | **Analytics** | PostHog | 1.297.2 (optional) |
-| **Deployment** | Vercel | (deployed) |
+| **Deployment** | Vercel | (planned) |
 
 ---
 
@@ -480,7 +479,7 @@ Response Generated
 - **Error Handling:** Graceful degradation, no sensitive data in error messages
 
 ### Data Privacy
-- **No PII in Logs:** User data not logged in production
+- **No PII in Logs:** User data is not logged when deployed
 - **Retention Policy:** (TBD) - Need to define memory retention periods
 - **Data Export:** (Planned) - User data export functionality
 
@@ -606,9 +605,9 @@ Response Generated
 
 ### Current
 - **Development:** Local Next.js dev server
-- **Production:** (Planned) Vercel deployment
+- **Production:** Vercel frontend is live; the early-2026 pilot's Supabase backend is no longer accessible
 
-### Production Setup (Planned)
+### Production Setup
 ```
 GitHub Repository
        │
