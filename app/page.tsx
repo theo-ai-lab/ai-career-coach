@@ -101,6 +101,17 @@ interface QuerySignals {
       losslessViolations: number;
       n: number;
     };
+    /**
+     * Live per-gate acceptance tally for the serving instance — a running
+     * skip-vs-escalate count since this process cold start. This is the LIVE
+     * in-instance signal (resets on cold start, not shared across serverless
+     * instances), distinct from the calibrated offline `measured` slice.
+     * Optional: only present when the route attaches a counter snapshot.
+     */
+    live?: Record<
+      string,
+      { runs: number; skips: number; rate: number | null }
+    >;
   } | null;
 }
 

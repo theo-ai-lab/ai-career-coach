@@ -44,6 +44,12 @@ import { runGroundingGate, type GroundingResult } from "@/lib/grounding";
  * In-memory (resets on cold start, not shared across serverless instances) — a
  * lightweight live signal, NOT the calibrated metric (that is the committed
  * offline replay surfaced via summarizeRequestCascade().measured).
+ *
+ * Its running snapshot is surfaced live in each response under
+ * signals.cascade.live (this instance's skip-vs-escalate tally so far),
+ * deliberately kept distinct from signals.cascade.measured (the calibrated
+ * offline replay). Honest framing: `.live` is a per-cold-start in-memory signal
+ * for THIS instance only, not the calibrated cross-run measure.
  */
 const gateCounter = new GateCounter();
 
@@ -221,9 +227,13 @@ export async function POST(req: NextRequest) {
               centroidProximity: ood.centroidProximity,
               margin: ood.margin,
             },
-            cascade: summarizeRequestCascade([
-              buildGateDecision("ood-gate", true),
-            ]),
+            cascade: summarizeRequestCascade(
+              [buildGateDecision("ood-gate", true)],
+              // Live in-instance acceptance tally so far (incl. this turn's
+              // OOD skip just recorded above) — the live signal, not the
+              // calibrated `.measured` offline replay.
+              gateCounter.snapshot(),
+            ),
           },
         });
       }
@@ -336,7 +346,12 @@ export async function POST(req: NextRequest) {
                 margin: ood.margin,
               }
             : null,
-          cascade: summarizeRequestCascade(buildTurnGates(null)),
+          cascade: summarizeRequestCascade(
+            buildTurnGates(null),
+            // Live in-instance acceptance tally so far (the live signal, not
+            // the calibrated `.measured` offline replay).
+            gateCounter.snapshot(),
+          ),
         },
       });
     }
@@ -570,7 +585,12 @@ Do NOT say "According to my memory" or "My records show" - be natural.`;
               margin: ood.margin,
             }
           : null,
-        cascade: summarizeRequestCascade(buildTurnGates(satisficingSkipped)),
+        cascade: summarizeRequestCascade(
+          buildTurnGates(satisficingSkipped),
+          // Live in-instance acceptance tally so far across all gates recorded
+          // this turn (the live signal, not the calibrated `.measured` replay).
+          gateCounter.snapshot(),
+        ),
       },
     });
   } catch (error: unknown) {

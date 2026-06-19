@@ -167,6 +167,21 @@ export function buildMeasuredSentence(slice: CascadeSlice = getCascadeReplaySlic
   );
 }
 
+/** One gate's running in-instance acceptance tally (skips / runs since cold start). */
+export interface GateAcceptanceTally {
+  runs: number;
+  skips: number;
+  rate: number | null;
+}
+
+/**
+ * Live per-gate acceptance snapshot for ONE process instance. Keyed by gate id,
+ * only including gates that have actually been recorded. This is the live
+ * in-instance signal (resets on cold start, not shared across serverless
+ * instances) — NOT the calibrated offline `measured` slice.
+ */
+export type GateAcceptanceSnapshot = Record<string, GateAcceptanceTally>;
+
 /**
  * Live per-gate acceptance-rate counter. Accumulates, per gate, how often the
  * cheap tier RESOLVED (skipped the expensive step) versus had to escalate.
@@ -184,15 +199,15 @@ export class GateCounter {
   }
 
   /** Acceptance rate = skips / runs for one gate (null when never run). */
-  acceptanceRate(gate: GateId): { runs: number; skips: number; rate: number | null } {
+  acceptanceRate(gate: GateId): GateAcceptanceTally {
     const runs = this.runs[gate] ?? 0;
     const skips = this.skips[gate] ?? 0;
     return { runs, skips, rate: runs === 0 ? null : skips / runs };
   }
 
   /** Acceptance rates for every gate that has been recorded. */
-  snapshot(): Record<string, { runs: number; skips: number; rate: number | null }> {
-    const out: Record<string, { runs: number; skips: number; rate: number | null }> = {};
+  snapshot(): GateAcceptanceSnapshot {
+    const out: GateAcceptanceSnapshot = {};
     for (const id of Object.keys(GATE_REGISTRY) as GateId[]) {
       const runs = this.runs[id] ?? 0;
       if (runs > 0) out[id] = this.acceptanceRate(id);
@@ -234,8 +249,24 @@ export interface RequestCascadeTelemetry {
   gates: GateDecision[];
   /** The repo's measured cascade slice (from committed offline replay). */
   measured: CascadeSlice;
+  /**
+   * Live per-gate acceptance snapshot for THIS process instance — a running
+   * skip-vs-escalate tally since cold start. In-memory, resets on cold start,
+   * not shared across serverless instances: a lightweight LIVE signal, NOT the
+   * calibrated offline `measured` slice. Present only when a counter snapshot is
+   * supplied (callers that have no live counter omit it).
+   */
+  live?: GateAcceptanceSnapshot;
 }
 
-export function summarizeRequestCascade(decisions: GateDecision[]): RequestCascadeTelemetry {
-  return { gates: decisions, measured: getCascadeReplaySlice() };
+export function summarizeRequestCascade(
+  decisions: GateDecision[],
+  live?: GateAcceptanceSnapshot,
+): RequestCascadeTelemetry {
+  const telemetry: RequestCascadeTelemetry = {
+    gates: decisions,
+    measured: getCascadeReplaySlice(),
+  };
+  if (live) telemetry.live = live;
+  return telemetry;
 }
