@@ -8,7 +8,7 @@ Built as a solo project to solve a real problem: career advice is either generic
 
 
 
-[LinkedIn](https://linkedin.com/in/theobermudez) · [Architecture](docs/ARCHITECTURE.md) · [Decision Log](docs/DECISION_LOG.md) · [Eval Framework](docs/EVAL_DESIGN.md)
+[LinkedIn](https://linkedin.com/in/theobermudez) · [PRD](docs/PRD.md) · [Metrics](docs/METRICS_FRAMEWORK.md) · [Roadmap](docs/ROADMAP.md) · [Architecture](docs/ARCHITECTURE.md) · [Decision Log](docs/DECISION_LOG.md) · [Eval Framework](docs/EVAL_DESIGN.md)
 
 ### What to read first
 
@@ -76,6 +76,9 @@ Known failure modes surfaced by the red-team (May 2026) — including a cross-co
 7. **Track** — PostHog analytics on every query and response
 
 ### Quality Gates (live request path)
+
+> Product framing of this capability ("Trustworthy Answering") lives in [docs/PRD.md](docs/PRD.md); the signals below map to a measurable event taxonomy in [docs/METRICS_FRAMEWORK.md](docs/METRICS_FRAMEWORK.md); what's next is in [docs/ROADMAP.md](docs/ROADMAP.md).
+
 `/api/query` runs three reliability gates from `lib/quality-gates/` on the live path; their signals are returned in the response payload and surfaced in the UI:
 
 - **Data-density confidence + HITL routing** (`data-density.ts`) — estimates how well the retrieved chunks support the query from their cosine similarities. A sparse region lowers the stated confidence and routes to human review; this is combined with the existing keyword high-stakes gate (`hitl-detection.ts`).
