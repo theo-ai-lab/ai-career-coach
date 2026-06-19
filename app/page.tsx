@@ -6,6 +6,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
   AlertTriangle,
+  FileQuestion,
   FileText,
   Loader2,
   RefreshCw,
@@ -69,6 +70,37 @@ interface QuerySignals {
       note: string | null;
     }>;
     reason: string | null;
+  } | null;
+  /**
+   * Pre-generation OOD screen. When `abstained`, the coach short-circuited an
+   * off-résumé query with an honest non-answer BEFORE the model could
+   * confabulate. The threshold is conformal-calibrated (see ood-gate.ts).
+   */
+  ood?: {
+    abstained: boolean;
+    score: number;
+    threshold: number | null;
+    targetAbstainRate: number;
+    coverage: number;
+    centroidProximity: number;
+    margin: number;
+  } | null;
+  /** Per-gate cascade telemetry + the repo's measured cheap→expensive slice. */
+  cascade?: {
+    gates: Array<{
+      gate: string;
+      regime: string;
+      locus: string;
+      skippedExpensiveStep: boolean | null;
+    }>;
+    measured: {
+      boundary: string;
+      alpha: number;
+      expensiveShare: number;
+      disagreementRate: number;
+      losslessViolations: number;
+      n: number;
+    };
   } | null;
 }
 
@@ -338,6 +370,8 @@ export default function Home() {
               .filter(Boolean);
             const grounding =
               m.role === "assistant" ? (m.signals?.grounding ?? null) : null;
+            const ood =
+              m.role === "assistant" ? (m.signals?.ood ?? null) : null;
 
             return (
               <div
@@ -365,6 +399,36 @@ export default function Home() {
                     </span>
                   )}
                 </div>
+
+                {/* Pre-generation OOD screen: the query was clearly off-résumé,
+                    so the coach gave an honest non-answer BEFORE the model could
+                    confabulate. Threshold is conformal-calibrated (ood-gate.ts). */}
+                {ood?.abstained && (
+                  <div
+                    role="status"
+                    className="mt-2 max-w-[90%] text-xs text-sky-900 bg-sky-50 border border-sky-200 rounded-md px-3 py-2 flex items-start gap-2"
+                    title={`OOD score ${ood.score.toFixed(3)} > calibrated threshold ${ood.threshold !== null ? ood.threshold.toFixed(3) : "n/a"} (target abstain budget ${(ood.targetAbstainRate * 100).toFixed(0)}%)`}
+                  >
+                    <FileQuestion
+                      className="h-4 w-4 shrink-0 mt-0.5"
+                      aria-hidden
+                    />
+                    <span>
+                      <span className="font-medium">
+                        Off-résumé question — answered without the model.
+                      </span>
+                      <span className="block text-sky-800">
+                        This sits outside what your résumé covers (retrieval
+                        surprise {ood.score.toFixed(2)} over the calibrated{" "}
+                        {ood.threshold !== null
+                          ? ood.threshold.toFixed(2)
+                          : "n/a"}{" "}
+                        cutoff), so the coach didn&apos;t generate an answer
+                        rather than risk inventing one.
+                      </span>
+                    </span>
+                  </div>
+                )}
 
                 {/* Confidence / HITL review banner — driven by the live
                     quality-gate signals (sparse data density, high-stakes

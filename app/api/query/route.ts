@@ -22,12 +22,30 @@ import {
   routeForHitl,
   runSatisficingLoop,
   DEFAULT_SATISFICING_CRITERIA,
+  estimateDensityFromNeighborSimilarities,
+  decideOOD,
+  OOD_ABSTAIN_MESSAGE,
+  GateCounter,
+  buildGateDecision,
+  summarizeRequestCascade,
   type RetrievedDoc,
   type AnswerGenerator,
   type QualityJudge,
   type StopReason,
+  type OODDecision,
+  type GateDecision,
 } from "@/lib/quality-gates";
 import { runGroundingGate, type GroundingResult } from "@/lib/grounding";
+
+/**
+ * Per-instance running acceptance-rate counter for the four gates on the answer
+ * path (OOD, data-density/HITL, info-gain, satisficing). It logs how often each
+ * gate's cheap/deterministic tier "skipped the expensive step" vs escalated.
+ * In-memory (resets on cold start, not shared across serverless instances) — a
+ * lightweight live signal, NOT the calibrated metric (that is the committed
+ * offline replay surfaced via summarizeRequestCascade().measured).
+ */
+const gateCounter = new GateCounter();
 
 /**
  * Build the revision prompt for a satisficing iteration > 1. Carries the
@@ -149,6 +167,70 @@ export async function POST(req: NextRequest) {
       similarity: d.similarity,
     }));
 
+    // PRE-GENERATION OOD GATE (wired live): score how *surprising* this query is
+    // to the résumé corpus from the top-k cosine similarities the RPC already
+    // returned (KEYLESS — no extra embedding/LLM call), and short-circuit
+    // clearly-off-résumé queries with an honest "not in your background" BEFORE
+    // the model can confabulate. The abstention threshold is CONFORMAL-calibrated
+    // to a target abstain budget on the committed red-team run (see
+    // lib/quality-gates/ood-gate.ts + docs/OOD_GATE_CALIBRATION.md), not a magic
+    // constant. Only runs when there ARE chunks: an empty first page means "no
+    // résumé indexed for this id", which the no-documents branch below handles —
+    // a different situation from "off-résumé query".
+    let ood: OODDecision | null = null;
+    if (firstPage.length > 0) {
+      ood = decideOOD(firstPage.map((d) => d.similarity));
+      if (ood.abstain) {
+        // The cheap deterministic tier resolved this turn WITHOUT escalating to
+        // the LLM — log that for the per-gate acceptance telemetry.
+        gateCounter.record("ood-gate", true);
+        const density = estimateDensityFromNeighborSimilarities(
+          firstPage.map((d) => d.similarity),
+        );
+        return NextResponse.json({
+          answer: OOD_ABSTAIN_MESSAGE,
+          sources: [],
+          sessionId: currentSessionId,
+          scores: null,
+          signals: {
+            confidence: density.confidence,
+            region: density.region,
+            meanSimilarity: density.meanNeighborSimilarity,
+            hitl: {
+              // We gave an honest deterministic non-answer; no human needed.
+              routeToHuman: false,
+              triggers: ["off-resume-ood"],
+              reason: ood.reason,
+            },
+            reretrieval: {
+              attempted: false,
+              fired: false,
+              infoGain: null,
+              savedCall: false,
+              improved: false,
+              decision: null,
+            },
+            satisficing: null,
+            grounding: null,
+            ood: {
+              abstained: true,
+              score: ood.score,
+              threshold: ood.threshold,
+              targetAbstainRate: ood.targetAbstainRate,
+              coverage: ood.coverage,
+              centroidProximity: ood.centroidProximity,
+              margin: ood.margin,
+            },
+            cascade: summarizeRequestCascade([
+              buildGateDecision("ood-gate", true),
+            ]),
+          },
+        });
+      }
+      // OOD gate passed: the cheap tier did NOT skip the expensive LLM step.
+      gateCounter.record("ood-gate", false);
+    }
+
     // QUALITY GATES (wired live):
     //  - data-density estimates how well the corpus supports this query and
     //    routes to HITL when the retrieval is sparse;
@@ -194,6 +276,32 @@ export async function POST(req: NextRequest) {
     const keywordHighStakes = detectHighStakes(query);
     const hitl = routeForHitl(pipeline.density, keywordHighStakes);
 
+    // Per-gate acceptance telemetry for the deterministic gates that ran this
+    // turn (the OOD gate was recorded above; satisficing is recorded after the
+    // loop). info-gain only "applies" when a re-retrieval was even considered.
+    const infoGainSkipped = pipeline.reretrieval.attempted
+      ? pipeline.reretrieval.savedCall
+      : null;
+    if (infoGainSkipped !== null) gateCounter.record("info-gain", infoGainSkipped);
+    // data-density resolves the turn without the expensive HITL step when it
+    // does NOT route to a human.
+    const densitySkippedHitl = !hitl.routeToHuman;
+    gateCounter.record("data-density", densitySkippedHitl);
+
+    // Assemble this turn's per-gate decisions (regime + locus + skip flag) for
+    // the cascade telemetry payload. OOD passed (did not skip the LLM) to reach
+    // here; satisficing is appended once the loop has run.
+    const buildTurnGates = (
+      satisficingSkipped: boolean | null,
+    ): GateDecision[] => {
+      const gates: GateDecision[] = [];
+      if (ood) gates.push(buildGateDecision("ood-gate", false));
+      gates.push(buildGateDecision("info-gain", infoGainSkipped));
+      gates.push(buildGateDecision("data-density", densitySkippedHitl));
+      gates.push(buildGateDecision("satisficing", satisficingSkipped));
+      return gates;
+    };
+
     // No grounding -> do NOT fabricate. Return a clear low-confidence state
     // (with the density/HITL signals) instead of a confident answer.
     if (finalDocs.length === 0) {
@@ -217,6 +325,18 @@ export async function POST(req: NextRequest) {
           // No answer was generated (no grounding), so there are no claims to
           // reconcile — the grounding gate has nothing to check here.
           grounding: null,
+          ood: ood
+            ? {
+                abstained: false,
+                score: ood.score,
+                threshold: ood.threshold,
+                targetAbstainRate: ood.targetAbstainRate,
+                coverage: ood.coverage,
+                centroidProximity: ood.centroidProximity,
+                margin: ood.margin,
+              }
+            : null,
+          cascade: summarizeRequestCascade(buildTurnGates(null)),
         },
       });
     }
@@ -397,6 +517,19 @@ Do NOT say "According to my memory" or "My records show" - be natural.`;
     if (belowQualityBar) triggers.push("below-quality-bar");
     if (groundingFlagged) triggers.push("grounding-unsupported");
 
+    // Satisficing acceptance telemetry: the loop "skipped the expensive step"
+    // (a further generate+judge pass) when it stopped early on the satisficed /
+    // diminishing-returns criterion rather than burning the iteration budget.
+    // For eval runs (skipMemory) the loop is capped at 1 iteration, so there is
+    // no genuine skip decision to log (null).
+    const satisficingSkipped =
+      satisficing && !skipMemory
+        ? satisficing.stopReason === "satisficed" ||
+          satisficing.stopReason === "diminishing-returns"
+        : null;
+    if (satisficingSkipped !== null)
+      gateCounter.record("satisficing", satisficingSkipped);
+
     return NextResponse.json({
       answer,
       sources: finalDocs.map((d) => ({
@@ -426,6 +559,18 @@ Do NOT say "According to my memory" or "My records show" - be natural.`;
         reretrieval: pipeline.reretrieval,
         satisficing,
         grounding,
+        ood: ood
+          ? {
+              abstained: false,
+              score: ood.score,
+              threshold: ood.threshold,
+              targetAbstainRate: ood.targetAbstainRate,
+              coverage: ood.coverage,
+              centroidProximity: ood.centroidProximity,
+              margin: ood.margin,
+            }
+          : null,
+        cascade: summarizeRequestCascade(buildTurnGates(satisficingSkipped)),
       },
     });
   } catch (error: unknown) {

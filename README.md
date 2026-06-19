@@ -15,6 +15,7 @@ Built as a solo project to solve a real problem: career advice is either generic
 - [**Eval benchmark methodology**](data/eval-benchmark/README.md) — Three Gulfs anchoring, preregistered judge architecture, falsifiability conditions, cost budget. The methodology document.
 - [**Red-team findings (May 2026)**](data/eval-benchmark/red-team-observations.md) — 25 adversarial prompts run against production. 6 failed / 9 material / 5 minor / 5 none. Strongest finding: the live LLM-as-judge scored a clear false-confirmation 85/100 on `mr-02`, exposing a blind spot in the rubric itself.
 - [**Preregistration memo (decision pending data)**](data/eval-benchmark/PM_DECISION_MEMO.md) — a preregistered three-way decision threshold for a *planned* production model migration (gpt-4o-mini → a newer-generation model pair; the specific target IDs are illustrative and not finalized). Thresholds are fixed in advance; direction-of-effect is the gating signal, CI bounds are reported for transparency only. The run results are not yet authored — current grid is N=6, v4 target N=12.
+- [**OOD gate calibration**](docs/OOD_GATE_CALIBRATION.md) — how the pre-generation abstention threshold is **calibrated** (split-conformal to a target abstain budget), held-out scored once, and verified — not hand-set. The score's functional form and α are fixed a priori; only τ is fit, and a script + test re-derive it from the committed red-team data.
 - [**Decision Log**](docs/DECISION_LOG.md) — 15 dated decisions with options-considered tables and implementation refs. Decisions 1-13 documented retroactively (see header note); Decisions 14-15 written contemporaneously. Example: Decision 14 (LLM-as-judge temperature 0) explains why eval reproducibility took precedence over generation diversity.
 
 ![App Screenshot](docs/screenshot.png)
@@ -79,13 +80,20 @@ Known failure modes surfaced by the red-team (May 2026) — including a cross-co
 
 > Product framing of this capability ("Trustworthy Answering") lives in [docs/PRD.md](docs/PRD.md); the signals below map to a measurable event taxonomy in [docs/METRICS_FRAMEWORK.md](docs/METRICS_FRAMEWORK.md); what's next is in [docs/ROADMAP.md](docs/ROADMAP.md).
 
-`/api/query` runs three reliability gates from `lib/quality-gates/` on the live path; their signals are returned in the response payload and surfaced in the UI:
+`/api/query` runs four reliability gates from `lib/quality-gates/` on the live path; their signals are returned in the response payload and surfaced in the UI. Each is a **cheap → expensive** boundary: a cheap deterministic tier resolves what it can and only escalates to the expensive tier it guards.
 
-- **Data-density confidence + HITL routing** (`data-density.ts`) — estimates how well the retrieved chunks support the query from their cosine similarities. A sparse region lowers the stated confidence and routes to human review; this is combined with the existing keyword high-stakes gate (`hitl-detection.ts`).
-- **Info-gain-gated re-retrieval** (`info-gain.ts`, composed in `retrieval-pipeline.ts`) — when the first retrieval is not dense, the query is expanded with the user's stored profile terms (a deterministic, key-free reformulation) and a second retrieval round-trip fires **only** if that reformulation carries enough new information; otherwise the redundant call is skipped. The denser page wins.
-- **Satisficing stop** (`satisficing.ts`) — generation is judged against the coaching-quality rubric and stops as soon as the answer clears the bar, only revising when it does not. A well-scored first draft costs exactly one generation + one judge call.
+- **OOD / retrieval-surprise screen** (`ood-gate.ts`) — *regime: model-free · locus: turn*. **Before generation**, scores how *surprising* the query is to the résumé corpus from the top-k cosine similarities the pgvector RPC **already returned** (KEYLESS — no extra embedding/LLM call). Above a **conformal-calibrated** threshold it short-circuits a clearly-off-résumé query ("which Pokémon should I use?", "should I raise my Lexapro dose?") with an honest "that isn't in your background — want to add it?" instead of letting the model confabulate. The threshold is **not a magic constant**: it is the split-conformal quantile for a target abstain budget (α = 0.15), calibrated from the committed red-team run and documented in [docs/OOD_GATE_CALIBRATION.md](docs/OOD_GATE_CALIBRATION.md). Below threshold the request falls through to the gates below, unchanged.
+- **Data-density confidence + HITL routing** (`data-density.ts`) — *regime: model-free · locus: turn*. Estimates how well the retrieved chunks support the query from their cosine similarities. A sparse region lowers the stated confidence and routes to human review; this is combined with the existing keyword high-stakes gate (`hitl-detection.ts`).
+- **Info-gain-gated re-retrieval** (`info-gain.ts`, composed in `retrieval-pipeline.ts`) — *regime: model-free · locus: step*. When the first retrieval is not dense, the query is expanded with the user's stored profile terms (a deterministic, key-free reformulation) and a second retrieval round-trip fires **only** if that reformulation carries enough new information; otherwise the redundant call is skipped. The denser page wins.
+- **Satisficing stop** (`satisficing.ts`) — *regime: model-based-residual · locus: turn*. Generation is judged against the coaching-quality rubric and stops as soon as the answer clears the bar, only revising when it does not. A well-scored first draft costs exactly one generation + one judge call.
 
-> Thresholds (`sparseSimilarity`, `denseSimilarity`, info-gain weights, satisficing targets) are documented, **unvalidated defaults** — they prove the wiring, not a tuned operating point, and must be calibrated against real traces before being trusted as release gates. The gates' decision logic is pure and unit-tested offline (`npm run test:quality-gates`).
+**Per-gate cascade telemetry** (`cascade-telemetry.ts`) logs each gate's skip-vs-escalate decision and exposes one consistent contract per cheap→expensive boundary: `alpha` (fraction the cheap tier resolved without escalating), `disagreementRate` (when both tiers run), and `losslessViolations` (cheap resolutions the expensive tier would *not* have made). For the OOD-gate → LLM-generation boundary these are **measured offline** by replaying the committed red-team run against its already-recorded judge scores — zero extra model spend:
+
+> On the committed 24-query red-team replay, the deterministic OOD fast path resolves 8.3% of queries (the clearly-off-résumé tail) before any LLM call with 0 lossless violations and 0.0% measured disagreement; the expensive LLM-generation + judge tier touches the remaining 91.7%.
+
+(That sentence is regenerated from the committed `cascade-replay.json` by `buildMeasuredSentence()`, so the docs and the code cannot disagree. n = 24, so it is a measured statement about this corpus with wide small-n intervals — not a guarantee about future traffic.) The other three gates expose a live runtime acceptance-rate counter but are honestly marked `losslessMeasured: false`: a lossless count for them needs a replay corpus that ran both the skip and no-skip variants through the judge, which is not committed, so it is not fabricated.
+
+> Thresholds (`sparseSimilarity`, `denseSimilarity`, info-gain weights, satisficing targets) are documented, **unvalidated defaults** — they prove the wiring, not a tuned operating point, and must be calibrated against real traces before being trusted as release gates. The OOD threshold is the exception: it is **calibrated** (split-conformal), with a held-out split scored once and a regenerate/verify script. The gates' decision logic is pure and unit-tested offline (`npm run test:quality-gates`).
 
 ### Multi-Agent Orchestration
 The agent layer runs as a LangGraph `StateGraph` (see `lib/report-graph.ts`):
@@ -178,6 +186,11 @@ lib/
 ├── report-graph.ts                       # LangGraph StateGraph orchestration
 ├── utils.ts                              # tailwind class merger
 ├── quality-gates/                        # live reliability gates (wired into /api/query)
+│   ├── ood-gate.ts                       # pre-generation OOD screen (conformal-calibrated, keyless)
+│   ├── ood-score.ts                      # pure OOD score + split-conformal / Wilson primitives
+│   ├── ood-calibration.json              # committed calibrated threshold τ (regenerated, not hand-set)
+│   ├── cascade-telemetry.ts              # per-gate alpha telemetry + suite cascade contract
+│   ├── cascade-replay.json               # committed measured cascade slice (offline, zero model spend)
 │   ├── data-density.ts                   # density confidence + HITL routing
 │   ├── info-gain.ts                      # info-gain-gated re-retrieval
 │   ├── satisficing.ts                    # satisficing stop for the critique→revise loop
