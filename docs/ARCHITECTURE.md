@@ -175,7 +175,10 @@ User asks question
        ▼
 POST /api/query
        │
-       ├──► Extract: { query, resumeId, sessionId, messages }
+       ├──► Extract: { query, resumeId, sessionId, messages, skipMemory }
+       │
+       ├──► Config Gate (honesty)
+       │    └──► getServiceConfig(): missing OpenAI/Supabase key → 503 clear state
        │
        ├──► Memory Retrieval (non-blocking)
        │    ├──► getUserProfile(userId) → user_profiles
@@ -186,44 +189,54 @@ POST /api/query
        ├──► Embed query
        │    └──► OpenAI text-embedding-3-small
        │
-       ├──► Vector Search
-       │    └──► supabase.rpc('match_documents_v2', {
-       │           query_embedding: vector,
-       │           match_count: resumeId ? 20 : 6,
-       │           p_resume_id: resumeId,
-       │           p_user_id: userId
-       │         })
-       │    └──► Scope by resume_id / user_id inside SQL
-       │    └──► Slice to top 6 chunks
+       ├──► Vector Search (first page)
+       │    └──► supabase.rpc('match_documents_v2', { query_embedding, match_count: 6,
+       │           p_resume_id, p_user_id }) → scope by resume_id / user_id inside SQL
+       │
+       ├──► Quality Gates (lib/quality-gates/)
+       │    ├──► Data-density: confidence + HITL routing from chunk similarities
+       │    ├──► Info-gain: profile-expanded reformulation; re-retrieve only if it
+       │    │    carries new information (else skip the call); denser page wins
+       │    └──► Keyword high-stakes gate combined into the HITL decision
+       │
+       ├──► (no grounding → return "No relevant experience found." + signals, no LLM)
        │
        ├──► Build Grounded Prompt
-       │    ├──► Resume context (retrieved chunks)
+       │    ├──► Resume context (final retrieved chunks)
        │    ├──► Memory context (if available)
        │    ├──► Communication style adaptation
        │    └──► Natural memory reference instructions
        │
-       ├──► Generate Response
-       │    └──► GPT-4o-mini (temperature: 0.2)
-       │    └──► Model: gpt-4o-mini
+       ├──► Generate + Satisficing Stop
+       │    └──► runSatisficingLoop: GPT-4o-mini (temp 0.2) generate → LLM-as-judge;
+       │         stop when the answer clears the quality bar, else revise (bounded)
        │
        ├──► Fire-and-Forget Operations
-       │    ├──► summarizeSessionAsync() - Background session summary
-       │    └──► Evaluation (if enabled) - Background quality scoring
+       │    ├──► Store eval row (non-blocking)
+       │    └──► summarizeSessionAsync() - Background session summary
        │
        └──► Return Response
             - answer: string
             - sources: [{ content, similarity }]
             - sessionId: string
+            - scores: { overall, actionability, personalization, honesty, grounding } | null
+            - signals: { confidence, region, meanSimilarity,
+                         hitl: { routeToHuman, triggers, reason },
+                         reretrieval: { attempted, fired, infoGain, savedCall, improved },
+                         satisficing: { iterations, stopReason, meetsQualityBar } | null }
 ```
 
 **Key Implementation Details:**
+- Config gate returns a clear 503 when keys are missing — no fabricated answer
 - Memory retrieval wrapped in try-catch (non-blocking)
-- Returns empty context if memory fails
+- Quality gates are pure/injectable; the route wires the real embedder + RPC + judge
+- Quality-gate thresholds are documented, unvalidated defaults (see module docstrings)
+- A first-pass answer that already satisfices costs one generation + one judge call
 - Session summarization runs asynchronously (zero latency impact)
 - Top-K retrieval: 6 chunks (configurable)
 - Filtering by `resume_id` ensures user isolation
 
-**Code:** `app/api/query/route.ts`, `lib/memory/retrieval.ts`
+**Code:** `app/api/query/route.ts`, `lib/quality-gates/`, `lib/service-config.ts`, `lib/memory/retrieval.ts`
 
 ---
 

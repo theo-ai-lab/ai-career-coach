@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { reportGraph } from "@/lib/report-graph";
+import { getServiceConfig } from "@/lib/service-config";
 
 interface RequestBody {
   resumeId: string;
@@ -21,6 +22,22 @@ export async function POST(req: NextRequest) {
     // Validate resumeId
     if (!resumeId) {
       return new Response("Missing required field: resumeId", { status: 400 });
+    }
+
+    // Honesty gate: the report pipeline runs 5-6 LLM calls + pgvector
+    // retrieval. Without the keys it needs, return a clear "not configured"
+    // state (503) rather than letting it fail mid-graph and look like a
+    // generic crash. Pure modules stay testable offline regardless.
+    const config = getServiceConfig();
+    if (!config.ready) {
+      console.warn(
+        "[Report] Service not configured; missing env:",
+        config.missing.join(", "),
+      );
+      return new Response(
+        "The report service is not configured. Generating a full report requires an OpenAI key and a Supabase connection.",
+        { status: 503 },
+      );
     }
 
     // Set defaults

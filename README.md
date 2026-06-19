@@ -75,6 +75,15 @@ Known failure modes surfaced by the red-team (May 2026) — including a cross-co
 6. **Generate** — `gpt-4o-mini` with strict grounding prompt (temperature: 0.2)
 7. **Track** — PostHog analytics on every query and response
 
+### Quality Gates (live request path)
+`/api/query` runs three reliability gates from `lib/quality-gates/` on the live path; their signals are returned in the response payload and surfaced in the UI:
+
+- **Data-density confidence + HITL routing** (`data-density.ts`) — estimates how well the retrieved chunks support the query from their cosine similarities. A sparse region lowers the stated confidence and routes to human review; this is combined with the existing keyword high-stakes gate (`hitl-detection.ts`).
+- **Info-gain-gated re-retrieval** (`info-gain.ts`, composed in `retrieval-pipeline.ts`) — when the first retrieval is not dense, the query is expanded with the user's stored profile terms (a deterministic, key-free reformulation) and a second retrieval round-trip fires **only** if that reformulation carries enough new information; otherwise the redundant call is skipped. The denser page wins.
+- **Satisficing stop** (`satisficing.ts`) — generation is judged against the coaching-quality rubric and stops as soon as the answer clears the bar, only revising when it does not. A well-scored first draft costs exactly one generation + one judge call.
+
+> Thresholds (`sparseSimilarity`, `denseSimilarity`, info-gain weights, satisficing targets) are documented, **unvalidated defaults** — they prove the wiring, not a tuned operating point, and must be calibrated against real traces before being trusted as release gates. The gates' decision logic is pure and unit-tested offline (`npm run test:quality-gates`).
+
 ### Multi-Agent Orchestration
 The agent layer runs as a LangGraph `StateGraph` (see `lib/report-graph.ts`):
 
@@ -88,7 +97,9 @@ The agent layer runs as a LangGraph `StateGraph` (see `lib/report-graph.ts`):
 | **Strategy Advisor** | 6-month strategy plan with monthly breakdown | `generateStrategy`, `strategyPlanNode` |
 | **Report Compiler** | Aggregate all outputs into a final markdown report | `compileReportNode` |
 
-Routing uses one conditional edge: job-matching runs only when a job description is provided. The rest of the graph executes sequentially with parallel branches for interview prep + strategy plan. High-stakes outputs (cover letters, career pivots) are flagged by `lib/hitl-detection.ts` (`detectHighStakes` returns a boolean that the cover-letter and strategy routes set on the response). Surfacing that flag as a UI review banner is **not yet wired** — today it is a flag on the response, not an enforced gate.
+Routing uses one conditional edge: job-matching runs only when a job description is provided. The rest of the graph executes sequentially with parallel branches for interview prep + strategy plan. High-stakes outputs (cover letters, career pivots) are flagged by `lib/hitl-detection.ts` (`detectHighStakes`). On the chat path (`/api/query`) this keyword gate is now combined with the data-density gate and surfaced as a "consider human review" banner in the UI. The per-agent cover-letter/strategy routes still only set the flag on their response — surfacing it in the report UI is pending.
+
+The orchestrator itself is reachable from the shipped UI via the **Generate full report** action, which calls `/api/agents/report` and renders the compiled markdown with explicit loading / error / result states.
 
 ### Evaluation Framework
 Every query-response pair runs through an async LLM-as-judge evaluation (see `lib/evals/coaching-quality.ts`):
@@ -99,7 +110,7 @@ Every query-response pair runs through an async LLM-as-judge evaluation (see `li
 - Honesty — Does it acknowledge limitations and uncertainty?
 - Grounding — Is every claim traceable to retrieved context?
 
-Composite score is the mean of 4 LLM-judge dimensions (actionability, personalization, honesty, grounding), scaled 0–100. Responses scoring below 75 surface a low-confidence warning in the UI.
+Composite score is the mean of 4 LLM-judge dimensions (actionability, personalization, honesty, grounding), scaled 0–100. The chat UI surfaces a low-confidence / human-review banner driven by the live quality-gate signals (sparse data density, a high-stakes keyword, or an answer that did not clear the satisficing quality bar), plus a subtle indicator when an info-gain-gated re-retrieval was attempted, fired, or skipped.
 
 The evaluation methodology follows a **continuous calibration** approach: identify failure mode → trace through agent logs → adjust routing or prompt logic → re-run eval suite → measure delta.
 
@@ -136,7 +147,7 @@ Three-layer architecture with different retention and retrieval patterns:
 
 ```
 app/
-├── page.tsx                              # main UI: chat box + resume upload (calls /api/query + /api/upload)
+├── page.tsx                              # main UI: chat + resume upload + full report (calls /api/query, /api/upload, /api/agents/report)
 ├── layout.tsx                            # root layout
 ├── providers.tsx                         # PostHog provider
 └── api/
@@ -159,9 +170,16 @@ components/
 lib/
 ├── rag.ts                                # resume context retrieval, chat client
 ├── supabase.ts                           # Supabase client
+├── service-config.ts                     # env/key readiness gate (honest 503 vs fake answer)
 ├── hitl-detection.ts                     # high-stakes keyword detection
 ├── report-graph.ts                       # LangGraph StateGraph orchestration
 ├── utils.ts                              # tailwind class merger
+├── quality-gates/                        # live reliability gates (wired into /api/query)
+│   ├── data-density.ts                   # density confidence + HITL routing
+│   ├── info-gain.ts                      # info-gain-gated re-retrieval
+│   ├── satisficing.ts                    # satisficing stop for the critique→revise loop
+│   ├── retrieval-pipeline.ts             # composes the gates into one retrieval decision
+│   └── vector-math.ts                    # pure cosine/kNN helpers (+ *.test.ts for each)
 ├── agents/
 │   ├── resume-analyzer/                  # node.ts + schema.ts
 │   ├── gap-finder/                       # node.ts + schema.ts
@@ -220,7 +238,7 @@ Requires Supabase project with pgvector extension enabled. SQL setup files at re
 | **Async eval (fire-and-forget)** | Zero latency impact on user experience — eval runs after response delivery |
 | **Three-layer memory** | Different information types need different retention policies and retrieval patterns |
 | **Temperature 0.2 for generation** | Prioritizes factual grounding over creative responses — career advice should be reliable, not novel |
-| **High-stakes detection (flag)** | Cover letters and career-pivot advice carry real consequences — `lib/hitl-detection.ts` flags the response with a `highStakes` boolean; surfacing that flag in the UI is planned, not yet wired |
+| **High-stakes detection + data-density HITL** | Cover letters and career-pivot advice carry real consequences — `lib/hitl-detection.ts` flags high-stakes keywords, now combined on the chat path with the data-density confidence gate and surfaced as a "consider human review" banner. Per-agent report-route flags are not yet surfaced in the report UI |
 
 ---
 

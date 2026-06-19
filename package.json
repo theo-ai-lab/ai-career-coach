@@ -25,6 +25,7 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
+    "test": "tsx --test lib/quality-gates/*.test.ts lib/*.test.ts",
     "test:quality-gates": "tsx --test lib/quality-gates/*.test.ts"
   },
   "dependencies": {

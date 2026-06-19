@@ -7,7 +7,58 @@ import {
   summarizeSessionAsync,
   type MemoryContext,
 } from "@/lib/memory";
-import { evaluateCoachingQuality } from "@/lib/evals/coaching-quality";
+import {
+  evaluateCoachingQuality,
+  type CoachingQualityOutput,
+} from "@/lib/evals/coaching-quality";
+import { detectHighStakes } from "@/lib/hitl-detection";
+import {
+  getServiceConfig,
+  SERVICE_UNAVAILABLE_PAYLOAD,
+} from "@/lib/service-config";
+import {
+  runRetrievalPipeline,
+  expandQueryWithProfile,
+  routeForHitl,
+  runSatisficingLoop,
+  DEFAULT_SATISFICING_CRITERIA,
+  type RetrievedDoc,
+  type AnswerGenerator,
+  type QualityJudge,
+  type StopReason,
+} from "@/lib/quality-gates";
+
+/**
+ * Build the revision prompt for a satisficing iteration > 1. Carries the
+ * previous draft + judge feedback and instructs the model to address the weak
+ * dimensions WITHOUT fabricating to inflate the score (the judge rewards
+ * honest acknowledgement of gaps, so this stays aligned with grounding).
+ */
+function buildRevisePrompt(
+  basePrompt: string,
+  previousAnswer: string,
+  previousJudge: CoachingQualityOutput,
+): string {
+  const weak = (
+    Object.entries(previousJudge.scores) as Array<[string, number]>
+  )
+    .filter(([, v]) => v < 4)
+    .map(([k]) => k);
+
+  return `${basePrompt}
+
+REVISION PASS
+A previous draft scored ${previousJudge.overall}/100 against the coaching-quality rubric${
+    weak.length ? ` and was weak on: ${weak.join(", ")}` : ""
+  }. Judge feedback: ${previousJudge.reasoning}
+
+PREVIOUS DRAFT:
+${previousAnswer}
+
+Revise the answer to address that feedback while staying strictly grounded in the candidate context above. Do NOT invent details to raise the score — if the context genuinely does not support a stronger answer, acknowledge the limitation honestly instead of fabricating.`;
+}
+
+const MATCH_COUNT = 6;
 
 export async function POST(req: NextRequest) {
   try {
@@ -23,6 +74,21 @@ export async function POST(req: NextRequest) {
     // fabricated response — the route had no input boundary validation.
     if (typeof query !== "string" || query.trim().length === 0) {
       return NextResponse.json({ error: "query required" }, { status: 400 });
+    }
+
+    // Honesty gate. The live answer path needs an OpenAI key (embeddings +
+    // generation + judge) and a Supabase connection (pgvector). Without them
+    // we return a clear "not configured" state instead of letting the request
+    // fail deep inside retrieval and surface as a generic error that looks
+    // like an empty/fabricated answer. The pure quality-gate modules remain
+    // unit-testable offline regardless of this.
+    const config = getServiceConfig();
+    if (!config.ready) {
+      console.warn(
+        "[Query] Service not configured; missing env:",
+        config.missing.join(", "),
+      );
+      return NextResponse.json(SERVICE_UNAVAILABLE_PAYLOAD, { status: 503 });
     }
 
     const supabase = getSupabase();
@@ -67,7 +133,7 @@ export async function POST(req: NextRequest) {
 
     const { data, error } = await supabase.rpc("match_documents_v2", {
       query_embedding: queryEmbedding,
-      match_count: 6,
+      match_count: MATCH_COUNT,
       p_resume_id: resumeId,
       p_user_id: null,
     });
@@ -77,14 +143,82 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ answer: "No relevant experience found." });
     }
 
-    const docs = data ?? [];
+    const firstPage: RetrievedDoc[] = (data ?? []).map((d) => ({
+      content: d.content,
+      similarity: d.similarity,
+    }));
 
-    if (docs.length === 0) {
+    // QUALITY GATES (wired live):
+    //  - data-density estimates how well the corpus supports this query and
+    //    routes to HITL when the retrieval is sparse;
+    //  - info-gain decides whether a profile-expanded reformulation is worth a
+    //    second retrieval round-trip (and skips it when it would add nothing).
+    // The reformulation uses the user's stored profile terms, so it is a
+    // deterministic, key-free expansion (no extra LLM call). Skipped for eval
+    // runs (skipMemory) so the benchmark measures the base retrieval.
+    const refinedQuery = skipMemory
+      ? query
+      : expandQueryWithProfile(query, memoryContext.profile);
+
+    const pipeline = await runRetrievalPipeline({
+      query,
+      refinedQuery,
+      initialDocs: firstPage,
+      queryEmbedding,
+      embed: (text) => embeddings.embedQuery(text),
+      retrieve: async (emb) => {
+        const { data: reData, error: reError } = await supabase.rpc(
+          "match_documents_v2",
+          {
+            query_embedding: emb as number[],
+            match_count: MATCH_COUNT,
+            p_resume_id: resumeId,
+            p_user_id: null,
+          },
+        );
+        if (reError) {
+          console.error("[Query] re-retrieval RPC error:", reError);
+          return [];
+        }
+        return (reData ?? []).map((d) => ({
+          content: d.content,
+          similarity: d.similarity,
+        }));
+      },
+    });
+
+    const finalDocs = pipeline.docs;
+
+    // Combine the density gate with the existing keyword high-stakes gate.
+    const keywordHighStakes = detectHighStakes(query);
+    const hitl = routeForHitl(pipeline.density, keywordHighStakes);
+
+    // No grounding -> do NOT fabricate. Return a clear low-confidence state
+    // (with the density/HITL signals) instead of a confident answer.
+    if (finalDocs.length === 0) {
       console.log("[Query] No documents found for resumeId:", resumeId);
-      return NextResponse.json({ answer: "No relevant experience found." });
+      return NextResponse.json({
+        answer: "No relevant experience found.",
+        sources: [],
+        sessionId: currentSessionId,
+        scores: null,
+        signals: {
+          confidence: pipeline.density.confidence,
+          region: pipeline.density.region,
+          meanSimilarity: pipeline.density.meanNeighborSimilarity,
+          hitl: {
+            routeToHuman: hitl.routeToHuman,
+            triggers: hitl.triggers as string[],
+            reason: hitl.reason,
+          },
+          reretrieval: pipeline.reretrieval,
+          satisficing: null,
+        },
+      });
     }
 
-    const context = docs.map((d) => d.content).join("\n\n");
+    const context = finalDocs.map((d) => d.content).join("\n\n");
+    const contexts = finalDocs.map((d) => d.content);
 
     // Build system prompt with memory context
     let systemPrompt = `You are an expert AI career coach helping candidates land their dream roles.
@@ -120,27 +254,67 @@ Do NOT say "According to my memory" or "My records show" - be natural.`;
 
     systemPrompt += `\n\nQuestion: ${query}\n\nAnswer concisely, professionally, and confidently. Never hallucinate.`;
 
-    const response = await llm.invoke(systemPrompt);
-    const answer = response.content.toString();
+    // SATISFICING STOP (wired live): generate, judge against the existing
+    // coaching-quality rubric, and stop as soon as the answer clears the
+    // quality bar — only revising when it does not. When the answer is good
+    // on the first pass (the common case) this is exactly one generation + one
+    // judge call, i.e. the same cost as before; weak answers are revised up to
+    // the criteria's safety backstop. If the judge itself fails we fall back to
+    // a single grounded generation with no scores (same resilience as before).
+    let answer: string;
+    let evalResult: CoachingQualityOutput | null = null;
+    let satisficing: {
+      iterations: number;
+      stopReason: StopReason;
+      meetsQualityBar: boolean;
+    } | null = null;
 
-    // Evaluate response quality (fire-and-forget, but we'll await it to return scores)
-    let evalResult = null;
+    const generator: AnswerGenerator = {
+      async generate({ iteration, previousAnswer, previousJudge }) {
+        const prompt =
+          iteration === 1 || !previousAnswer || !previousJudge
+            ? systemPrompt
+            : buildRevisePrompt(systemPrompt, previousAnswer, previousJudge);
+        const response = await llm.invoke(prompt);
+        return response.content.toString();
+      },
+    };
+    const judge: QualityJudge = {
+      evaluate: (candidate) =>
+        evaluateCoachingQuality({ query, response: candidate, contexts }),
+    };
+
     try {
-      evalResult = await evaluateCoachingQuality({
-        query,
-        response: answer,
-        contexts: docs.map((d) => d.content),
+      const loop = await runSatisficingLoop({
+        generator,
+        judge,
+        criteria: DEFAULT_SATISFICING_CRITERIA,
       });
+      answer = loop.answer;
+      evalResult = loop.finalJudge;
+      satisficing = {
+        iterations: loop.iterations,
+        stopReason: loop.stopReason,
+        meetsQualityBar: loop.meetsQualityBar,
+      };
+    } catch (loopError: unknown) {
+      console.warn(
+        "[Query] Satisficing loop failed; falling back to single generation:",
+        loopError instanceof Error ? loopError.message : String(loopError),
+      );
+      const response = await llm.invoke(systemPrompt);
+      answer = response.content.toString();
+    }
 
-      // Store eval in Supabase (non-blocking). Reuses outer `supabase`
-      // client — previously this block re-called the factory, which was
-      // a wasted client construction per security review follow-up.
+    // Store eval in Supabase (non-blocking). Reuses the outer `supabase`
+    // client. Only runs when a judge score is available.
+    if (evalResult) {
       try {
         await supabase.from("evals").insert({
           response_id: `${currentSessionId}-query`,
           query,
           response: answer,
-          contexts: docs.map((d) => d.content),
+          contexts,
           scores: evalResult.scores,
           reasoning: evalResult.reasoning,
           overall_score: evalResult.overall,
@@ -152,12 +326,6 @@ Do NOT say "According to my memory" or "My records show" - be natural.`;
         );
         // Don't fail if DB write fails
       }
-    } catch (evalError: unknown) {
-      console.warn(
-        "[Eval] Failed to evaluate response:",
-        evalError instanceof Error ? evalError.message : String(evalError),
-      );
-      // Continue without scores if evaluation fails
     }
 
     // Fire-and-forget session summarization (zero latency impact). Skipped
@@ -181,9 +349,15 @@ Do NOT say "According to my memory" or "My records show" - be natural.`;
       }
     }
 
+    // An answer that never cleared the quality bar is itself a reason to
+    // escalate to a human, alongside the density / keyword HITL triggers.
+    const belowQualityBar = satisficing ? !satisficing.meetsQualityBar : false;
+    const triggers: string[] = [...hitl.triggers];
+    if (belowQualityBar) triggers.push("below-quality-bar");
+
     return NextResponse.json({
       answer,
-      sources: docs.map((d) => ({
+      sources: finalDocs.map((d) => ({
         content: d.content,
         similarity: d.similarity,
       })),
@@ -197,6 +371,18 @@ Do NOT say "According to my memory" or "My records show" - be natural.`;
             grounding: evalResult.scores.grounding,
           }
         : null,
+      signals: {
+        confidence: pipeline.density.confidence,
+        region: pipeline.density.region,
+        meanSimilarity: pipeline.density.meanNeighborSimilarity,
+        hitl: {
+          routeToHuman: hitl.routeToHuman || belowQualityBar,
+          triggers,
+          reason: hitl.reason,
+        },
+        reretrieval: pipeline.reretrieval,
+        satisficing,
+      },
     });
   } catch (error: unknown) {
     // Log the full error server-side. Do NOT echo error.message to the
