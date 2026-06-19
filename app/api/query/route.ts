@@ -27,6 +27,7 @@ import {
   type QualityJudge,
   type StopReason,
 } from "@/lib/quality-gates";
+import { runGroundingGate, type GroundingResult } from "@/lib/grounding";
 
 /**
  * Build the revision prompt for a satisficing iteration > 1. Carries the
@@ -213,6 +214,9 @@ export async function POST(req: NextRequest) {
           },
           reretrieval: pipeline.reretrieval,
           satisficing: null,
+          // No answer was generated (no grounding), so there are no claims to
+          // reconcile — the grounding gate has nothing to check here.
+          grounding: null,
         },
       });
     }
@@ -285,10 +289,17 @@ Do NOT say "According to my memory" or "My records show" - be natural.`;
     };
 
     try {
+      // Eval/benchmark runs (skipMemory) measure the RAW first-draft answer:
+      // cap satisficing at a single generation + judge so no revision pass
+      // shifts the documented benchmark baseline. Re-retrieval is already
+      // skipped above for skipMemory for the same reason. Real user traffic
+      // runs the full satisficing loop.
       const loop = await runSatisficingLoop({
         generator,
         judge,
-        criteria: DEFAULT_SATISFICING_CRITERIA,
+        criteria: skipMemory
+          ? { ...DEFAULT_SATISFICING_CRITERIA, maxIterations: 1 }
+          : DEFAULT_SATISFICING_CRITERIA,
       });
       answer = loop.answer;
       evalResult = loop.finalJudge;
@@ -349,11 +360,42 @@ Do NOT say "According to my memory" or "My records show" - be natural.`;
       }
     }
 
-    // An answer that never cleared the quality bar is itself a reason to
-    // escalate to a human, alongside the density / keyword HITL triggers.
+    // POST-GENERATION GROUNDING GATE (wired live): independently reconcile the
+    // factual claims the answer makes about the user against the retrieved
+    // résumé evidence via Pacioli's claim-vs-evidence engine over HTTP. This
+    // complements the pre-generation density/HITL gate and targets the
+    // documented mr-02 false-confirmation blind spot (the Coach's own judge
+    // scoring a fabrication 85/100). Config-gated by PACIOLI_RECONCILE_URL: an
+    // unset URL or unreachable peer degrades to a 'skipped'/'unavailable'
+    // result — it never blocks the answer and never fabricates a verdict.
+    let grounding: GroundingResult | null = null;
+    try {
+      grounding = await runGroundingGate({
+        query,
+        answer,
+        contexts,
+        sessionKey: currentSessionId,
+      });
+    } catch (groundingError: unknown) {
+      // The gate is built never to throw; this is belt-and-suspenders so a
+      // wiring bug can never break the answer path.
+      console.warn(
+        "[Grounding] gate failed:",
+        groundingError instanceof Error
+          ? groundingError.message
+          : String(groundingError),
+      );
+      grounding = null;
+    }
+
+    // An answer that never cleared the quality bar — or whose claims failed the
+    // grounding check — is itself a reason to escalate to a human, alongside
+    // the density / keyword HITL triggers.
     const belowQualityBar = satisficing ? !satisficing.meetsQualityBar : false;
+    const groundingFlagged = grounding?.status === "flagged";
     const triggers: string[] = [...hitl.triggers];
     if (belowQualityBar) triggers.push("below-quality-bar");
+    if (groundingFlagged) triggers.push("grounding-unsupported");
 
     return NextResponse.json({
       answer,
@@ -376,12 +418,14 @@ Do NOT say "According to my memory" or "My records show" - be natural.`;
         region: pipeline.density.region,
         meanSimilarity: pipeline.density.meanNeighborSimilarity,
         hitl: {
-          routeToHuman: hitl.routeToHuman || belowQualityBar,
+          routeToHuman:
+            hitl.routeToHuman || belowQualityBar || Boolean(groundingFlagged),
           triggers,
           reason: hitl.reason,
         },
         reretrieval: pipeline.reretrieval,
         satisficing,
+        grounding,
       },
     });
   } catch (error: unknown) {

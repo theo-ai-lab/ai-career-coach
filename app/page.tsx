@@ -4,7 +4,15 @@ import { useEffect, useRef, useState } from "react";
 
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { AlertTriangle, FileText, Loader2, RefreshCw, X } from "lucide-react";
+import {
+  AlertTriangle,
+  FileText,
+  Loader2,
+  RefreshCw,
+  ShieldAlert,
+  ShieldCheck,
+  X,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -44,6 +52,24 @@ interface QuerySignals {
     stopReason: string;
     meetsQualityBar: boolean;
   } | null;
+  /**
+   * Post-generation grounding gate: the answer's factual claims reconciled
+   * against the retrieved résumé evidence via Pacioli. Optional/nullable so a
+   * response from a build without the gate (or before it ran) still renders.
+   */
+  grounding?: {
+    status: "flagged" | "clean" | "deterministic-only" | "skipped" | "unavailable";
+    checked: number;
+    unsupported: number;
+    overclaim: number;
+    judgeMode: string | null;
+    flagged: Array<{
+      claim: string;
+      status: "unsupported" | "overclaim";
+      note: string | null;
+    }>;
+    reason: string | null;
+  } | null;
 }
 
 interface Message {
@@ -59,6 +85,7 @@ const TRIGGER_LABELS: Record<string, string> = {
   "sparse-data-density": "limited supporting evidence in your resume",
   "high-stakes-keyword": "a high-stakes career decision",
   "below-quality-bar": "the answer did not clear the quality bar",
+  "grounding-unsupported": "statements not supported by your resume",
 };
 
 function reretrievalNote(
@@ -309,6 +336,8 @@ export default function Home() {
             const reviewTriggers = (m.signals?.hitl.triggers ?? [])
               .map((t) => TRIGGER_LABELS[t] ?? t)
               .filter(Boolean);
+            const grounding =
+              m.role === "assistant" ? (m.signals?.grounding ?? null) : null;
 
             return (
               <div
@@ -392,6 +421,56 @@ export default function Home() {
                     <span>{reNote.text}</span>
                   </div>
                 )}
+
+                {/* Post-generation grounding gate — the answer's factual claims
+                    reconciled against the retrieved résumé evidence via Pacioli.
+                    'flagged' = >=1 claim not supported; 'clean'/'deterministic-
+                    only' shown subtly; 'skipped'/'unavailable' render nothing. */}
+                {grounding && grounding.status === "flagged" && (
+                  <div
+                    role="status"
+                    className="mt-2 max-w-[90%] text-xs text-rose-800 bg-rose-50 border border-rose-200 rounded-md px-3 py-2"
+                  >
+                    <div className="flex items-start gap-2">
+                      <ShieldAlert
+                        className="h-4 w-4 shrink-0 mt-0.5"
+                        aria-hidden
+                      />
+                      <span className="font-medium">
+                        Grounding check:{" "}
+                        {grounding.unsupported + grounding.overclaim} statement
+                        {grounding.unsupported + grounding.overclaim === 1
+                          ? ""
+                          : "s"}{" "}
+                        not fully supported by your résumé.
+                      </span>
+                    </div>
+                    {grounding.flagged.length > 0 && (
+                      <ul className="mt-1.5 ml-6 list-disc space-y-0.5 text-rose-700">
+                        {grounding.flagged.slice(0, 5).map((f, j) => (
+                          <li key={j}>
+                            <span className="italic">
+                              &ldquo;{f.claim}&rdquo;
+                            </span>
+                            {f.note ? <span> — {f.note}</span> : null}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )}
+                {grounding &&
+                  (grounding.status === "clean" ||
+                    grounding.status === "deterministic-only") && (
+                    <div className="mt-1.5 text-[11px] flex items-center gap-1 text-slate-500">
+                      <ShieldCheck className="h-3 w-3 shrink-0" aria-hidden />
+                      <span>
+                        {grounding.status === "clean"
+                          ? `Grounding check: ${grounding.checked} claim${grounding.checked === 1 ? "" : "s"} reconciled against your résumé.`
+                          : `Grounding check: ${grounding.checked} claim${grounding.checked === 1 ? "" : "s"} checked (structural only — semantic verification not enabled).`}
+                      </span>
+                    </div>
+                  )}
               </div>
             );
           })}
