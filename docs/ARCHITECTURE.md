@@ -215,6 +215,10 @@ POST /api/query
        │    ├──► Store eval row (non-blocking)
        │    └──► summarizeSessionAsync() - Background session summary
        │
+       ├──► Post-generation Grounding Gate (lib/grounding/)
+       │    └──► runGroundingGate(): reconcile the answer's factual claims vs the
+       │         retrieved résumé via Pacioli; config-gated, never blocks/fabricates
+       │
        └──► Return Response
             - answer: string
             - sources: [{ content, similarity }]
@@ -223,7 +227,8 @@ POST /api/query
             - signals: { confidence, region, meanSimilarity,
                          hitl: { routeToHuman, triggers, reason },
                          reretrieval: { attempted, fired, infoGain, savedCall, improved },
-                         satisficing: { iterations, stopReason, meetsQualityBar } | null }
+                         satisficing: { iterations, stopReason, meetsQualityBar } | null,
+                         grounding: { status, checked, unsupported, overclaim, judgeMode, flagged } | null }
 ```
 
 **Key Implementation Details:**
@@ -232,11 +237,12 @@ POST /api/query
 - Quality gates are pure/injectable; the route wires the real embedder + RPC + judge
 - Quality-gate thresholds are documented, unvalidated defaults (see module docstrings)
 - A first-pass answer that already satisfices costs one generation + one judge call
+- Post-generation grounding gate is config-gated (`PACIOLI_RECONCILE_URL`); unset/unreachable degrades to a `skipped`/`unavailable` result and never blocks the answer
 - Session summarization runs asynchronously (zero latency impact)
 - Top-K retrieval: 6 chunks (configurable)
 - Filtering by `resume_id` ensures user isolation
 
-**Code:** `app/api/query/route.ts`, `lib/quality-gates/`, `lib/service-config.ts`, `lib/memory/retrieval.ts`
+**Code:** `app/api/query/route.ts`, `lib/quality-gates/`, `lib/grounding/`, `lib/service-config.ts`, `lib/memory/retrieval.ts`
 
 ---
 

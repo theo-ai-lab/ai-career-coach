@@ -18,7 +18,7 @@ Related artifacts: [METRICS_FRAMEWORK.md](METRICS_FRAMEWORK.md) · [ROADMAP.md](
 
 ## TL;DR
 
-A career-coaching answer that *sounds* confident but is ungrounded, off-domain, or fabricated is worse than no answer — it sends someone into a real job search with bad data. **Trustworthy Answering** is the capability that wraps the existing RAG answer path in `/api/query` with four reliability gates, two before generation and one after, plus an honest "not configured" floor:
+A career-coaching answer that *sounds* confident but is ungrounded, off-domain, or fabricated is worse than no answer — it sends someone into a real job search with bad data. **Trustworthy Answering** is the capability that wraps the existing RAG answer path in `/api/query` with four reliability gates — two before generation, one at generation, and one after — plus an honest "not configured" floor:
 
 1. **Pre-gen: data-density confidence + HITL routing** — measure how well the retrieved résumé actually supports the question; lower confidence and route to a human when it does not (`lib/quality-gates/data-density.ts`).
 2. **Pre-gen: info-gain-gated re-retrieval** — when the first retrieval is thin, try a profile-expanded query, but only fire the second round-trip if it carries new information (`lib/quality-gates/info-gain.ts`, composed in `retrieval-pipeline.ts`).
