@@ -18,14 +18,15 @@ Related artifacts: [METRICS_FRAMEWORK.md](METRICS_FRAMEWORK.md) · [ROADMAP.md](
 
 ## TL;DR
 
-A career-coaching answer that *sounds* confident but is ungrounded, off-domain, or fabricated is worse than no answer — it sends someone into a real job search with bad data. **Trustworthy Answering** is the capability that wraps the existing RAG answer path in `/api/query` with four reliability gates — two before generation, one at generation, and one after — plus an honest "not configured" floor:
+A career-coaching answer that *sounds* confident but is ungrounded, off-domain, or fabricated is worse than no answer — it sends someone into a real job search with bad data. **Trustworthy Answering** is the capability that wraps the existing RAG answer path in `/api/query` with five reliability gates — three before generation, one at generation, and one after — plus an honest "not configured" floor:
 
-1. **Pre-gen: data-density confidence + HITL routing** — measure how well the retrieved résumé actually supports the question; lower confidence and route to a human when it does not (`lib/quality-gates/data-density.ts`).
-2. **Pre-gen: info-gain-gated re-retrieval** — when the first retrieval is thin, try a profile-expanded query, but only fire the second round-trip if it carries new information (`lib/quality-gates/info-gain.ts`, composed in `retrieval-pipeline.ts`).
-3. **Generation: satisficing stop** — generate, judge against the 4-dimension coaching rubric, stop the moment the answer clears the bar; revise only when it does not, with hard floors on honesty + grounding (`lib/quality-gates/satisficing.ts`).
-4. **Post-gen: grounding gate** — independently reconcile the answer's factual claims about the user against the retrieved résumé via Pacioli's claim-vs-evidence engine, catching the false-confirmation class the in-app judge is blind to (`lib/grounding/`).
+1. **Pre-gen: out-of-distribution (OOD) short-circuit** — score how *surprising* the query is to the résumé corpus from the same top-k cosine similarities the RPC already returned (keyless), and above a conformal-calibrated threshold abstain *before* generation with an honest "not in your background" instead of letting the model confabulate on a question it has no evidence for (`lib/quality-gates/ood-gate.ts`, calibrated per [OOD_GATE_CALIBRATION.md](OOD_GATE_CALIBRATION.md)).
+2. **Pre-gen: data-density confidence + HITL routing** — measure how well the retrieved résumé actually supports the question; lower confidence and route to a human when it does not (`lib/quality-gates/data-density.ts`).
+3. **Pre-gen: info-gain-gated re-retrieval** — when the first retrieval is thin, try a profile-expanded query, but only fire the second round-trip if it carries new information (`lib/quality-gates/info-gain.ts`, composed in `retrieval-pipeline.ts`).
+4. **Generation: satisficing stop** — generate, judge against the 4-dimension coaching rubric, stop the moment the answer clears the bar; revise only when it does not, with hard floors on honesty + grounding (`lib/quality-gates/satisficing.ts`).
+5. **Post-gen: grounding gate** — independently reconcile the answer's factual claims about the user against the retrieved résumé via Pacioli's claim-vs-evidence engine, catching the false-confirmation class the in-app judge is blind to (`lib/grounding/`).
 
-All four feed one escalation decision and one `signals` payload returned to the UI. Every gate degrades safely: a missing key returns an honest 503, an unreachable grounding peer returns a labelled `unavailable`, and no path ever fabricates a verdict.
+The four post-OOD gates feed one escalation decision and one `signals` payload returned to the UI; an OOD abstain short-circuits before generation and returns that same `signals` shape (with `ood.abstained: true` and `routeToHuman: false`). Every gate degrades safely: a missing key returns an honest 503, an unreachable grounding peer returns a labelled `unavailable`, an OOD score with no certifiable threshold simply never abstains, and no path ever fabricates a verdict.
 
 ---
 
@@ -61,14 +62,14 @@ These are trust failures, not capability failures. The model is fluent. The gap 
 |---|------|------|
 | G1 | Never answer confidently from a sparse corpus region | Share of answers where `region = sparse` that route to human — **pending real traffic** |
 | G2 | Catch the false-confirmation class the in-app judge misses | Grounding gate `flagged` rate with the semantic judge active — **pending real traffic** |
-| G3 | Make every escalation explainable to the user and loggable for the operator | `signals.hitl.reason` + `triggers[]` present on 100% of answered responses (structural, verifiable in `route.ts:416-429`) |
+| G3 | Make every escalation explainable to the user and loggable for the operator | `signals.hitl.reason` + `triggers[]` present on 100% of answered responses (structural, verifiable in `route.ts:564-594`) |
 | G4 | Spend no extra LLM calls on the happy path | A first-pass answer that clears the bar = exactly 1 generation + 1 judge call (`satisficing.ts:148-158`); a redundant re-search is skipped (`info-gain.ts:200-210`) |
-| G5 | Degrade honestly when unconfigured rather than fake an answer | Missing key → 503 (`route.ts:86-93`); unreachable grounding peer → `unavailable` (`grounding/index.ts:111-121`) |
+| G5 | Degrade honestly when unconfigured rather than fake an answer | Missing key → 503 (`route.ts:110-117`); unreachable grounding peer → `unavailable` (`grounding/index.ts:111-121`) |
 
 ## Non-goals
 
-- **Not** a calibration of the thresholds. Every threshold shipped is an **unvalidated default** (`data-density.ts:49-55`, `satisficing.ts:44-48`, `info-gain.ts:57-60`). Calibration is gated on real traffic — see [ROADMAP.md](ROADMAP.md).
-- **Not** auth, rate limiting, or per-user identity. `userId` is still aliased to `resumeId` (`route.ts:99-105`); fixing that is out of scope here.
+- **Not** a calibration of the thresholds on production traffic. Every *gate* threshold shipped is an **unvalidated default** (`data-density.ts:49-55`, `satisficing.ts:44-48`, `info-gain.ts:57-60`), with one exception: the OOD abstention τ is the single value *fit to data* — split-conformal-calibrated to the committed red-team run (R8) — and even that should be **recalibrated against real traffic** before it is trusted as a release gate ([OOD_GATE_CALIBRATION.md](OOD_GATE_CALIBRATION.md) §6). Calibration on real traffic is gated on it arriving — see [ROADMAP.md](ROADMAP.md).
+- **Not** auth, rate limiting, or per-user identity. `userId` is still aliased to `resumeId` (`route.ts:123-129`); fixing that is out of scope here.
 - **Not** a human-review queue UI. The gate *routes* to human review and surfaces a banner; the actual reviewer workflow/inbox is not built.
 - **Not** the report path. Trustworthy Answering wires into `/api/query` (chat). The orchestrator (`/api/agents/report`) sets per-section eval scores but does not yet run the density/grounding gates — see Scope cuts.
 - **Not** an outcome claim. We do not assert that grounded answers get users more interviews; outcome tracking is explicitly deferred ([EVAL_DESIGN.md](EVAL_DESIGN.md), "What this can't catch").
@@ -77,22 +78,22 @@ These are trust failures, not capability failures. The model is fluent. The gap 
 
 ## Shipped requirements
 
-Each requirement is **R**ealized in code today. Citations are `file:line` ranges at the current `feat/wired-product` HEAD.
+Each requirement is **R**ealized in code today. Citations are `file:line` ranges at the current `feat/ood-gate` HEAD.
 
 ### R1 — Input + readiness floor (honest failure before any model call)
-- Reject empty/whitespace queries with `400` before embedding — closes red-team `ec-01` (`route.ts:73-78`).
-- Require `resumeId` (`route.ts:69-71`).
-- If OpenAI/Supabase env is not configured, return a `503` "service unavailable" payload instead of failing deep in retrieval and surfacing as a fake empty answer (`route.ts:86-93`, `lib/service-config.ts`).
+- Reject empty/whitespace queries with `400` before embedding — closes red-team `ec-01` (`route.ts:97-102`).
+- Require `resumeId` (`route.ts:93-95`).
+- If OpenAI/Supabase env is not configured, return a `503` "service unavailable" payload instead of failing deep in retrieval and surfacing as a fake empty answer (`route.ts:110-117`, `lib/service-config.ts`).
 
 ### R2 — Pre-generation: data-density confidence + HITL routing
-- Estimate local corpus density from the cosine similarities the retrieval RPC already returns — **zero extra cost**, no extra embedding/DB call (`data-density.ts:144-185`, fed from `route.ts:147-150`).
+- Estimate local corpus density from the cosine similarities the retrieval RPC already returns — **zero extra cost**, no extra embedding/DB call (`data-density.ts:144-185`, fed from `route.ts:171-174`).
 - Classify the query region as `dense | borderline | sparse` and derive a `confidence` in `[0,1]` (`data-density.ts:59`, `82-97`).
 - A `sparse` region floors confidence and recommends human review (`data-density.ts:168`).
-- Combine the density signal with the existing keyword high-stakes gate (`detectHighStakes`, `lib/hitl-detection.ts:42`) into one routing decision with named `triggers` (`routeForHitl`, `data-density.ts:249-269`; wired at `route.ts:194-195`).
-- When no documents are retrieved at all, return a labelled low-confidence state — **never** a confident fabricated answer (`route.ts:199-222`).
+- Combine the density signal with the existing keyword high-stakes gate (`detectHighStakes`, `lib/hitl-detection.ts:42`) into one routing decision with named `triggers` (`routeForHitl`, `data-density.ts:249-269`; wired at `route.ts:286-287`).
+- When no documents are retrieved at all, return a labelled low-confidence state — **never** a confident fabricated answer (`route.ts:317-357`).
 
 ### R3 — Pre-generation: info-gain-gated re-retrieval
-- Build a deterministic, **key-free** reformulation by expanding the query with the user's stored profile terms — target role, companies, skills (`expandQueryWithProfile`, `retrieval-pipeline.ts:234-255`; wired at `route.ts:160-162`).
+- Build a deterministic, **key-free** reformulation by expanding the query with the user's stored profile terms — target role, companies, skills (`expandQueryWithProfile`, `retrieval-pipeline.ts:234-255`; wired at `route.ts:252-254`).
 - Re-retrieval is *considered* only when the first page is non-empty and not already dense (`retrieval-pipeline.ts:144-158`).
 - It actually *fires* only when combined semantic-drift + lexical-novelty info-gain clears the threshold, or the page was sparse (a hard "need more evidence" signal) (`info-gain.ts:170-211`, `retrieval-pipeline.ts:169-176`).
 - The denser of the two pages wins; a skipped redundant call is recorded as `savedCall` (`retrieval-pipeline.ts:178-214`).
@@ -101,23 +102,33 @@ Each requirement is **R**ealized in code today. Citations are `file:line` ranges
 - Generate → judge against the live 4-dimension rubric (`lib/evals/coaching-quality.ts`) → stop as soon as `overall ≥ target` **and** the honesty + grounding floors are met (`satisficing.ts:134-158`; defaults `overallTarget=80`, floors `{honesty:4, grounding:4}`, `satisficing.ts:73-78`).
 - A high average cannot mask a safety-relevant weakness: an answer slick on actionability but weak on grounding will not satisfice (`satisficing.ts:30-33`).
 - Plateau detection (`diminishing-returns`) and a hard `maxIterations` backstop prevent unbounded loops (`satisficing.ts:160-182`).
-- The revise prompt explicitly forbids fabricating to raise the score (`route.ts:38-60`).
-- If the judge itself throws, fall back to a single grounded generation with no scores — same resilience as before the gate (`route.ts:311-318`).
+- The revise prompt explicitly forbids fabricating to raise the score (`route.ts:62-84`).
+- If the judge itself throws, fall back to a single grounded generation with no scores — same resilience as before the gate (`route.ts:446-453`).
 
 ### R5 — Post-generation: grounding gate (independent cross-check)
-- Extract the answer's factual claims about the user and reconcile them against the retrieved résumé evidence via Pacioli's `POST /api/reconcile` engine (`runGroundingGate`, `lib/grounding/index.ts:69-156`; wired at `route.ts:371-389`).
+- Extract the answer's factual claims about the user and reconcile them against the retrieved résumé evidence via Pacioli's `POST /api/reconcile` engine (`runGroundingGate`, `lib/grounding/index.ts:69-156`; wired at `route.ts:507-513`).
 - This is the explicit counter to the `mr-02` blind spot: a *second, independent* engine that does not share the in-app judge's rubric (`grounding/types.ts:18-23`).
 - **Honest status semantics** (`grounding/types.ts:76-93`): `clean` is only reported when the semantic judge actually ran; otherwise `deterministic-only` makes clear that a "0 unsupported" is **not** a clean bill of health (`grounding/index.ts:138-145`).
-- The gate is built never to throw and never to invent a verdict; unconfigured → `skipped`, unreachable → `unavailable` (`grounding/index.ts:74-121`, belt-and-suspenders try/catch at `route.ts:379-389`).
+- The gate is built never to throw and never to invent a verdict; unconfigured → `skipped`, unreachable → `unavailable` (`grounding/index.ts:74-121`, belt-and-suspenders try/catch at `route.ts:514-524`).
 
 ### R6 — One escalation decision + one signals payload
-- A below-bar satisficing result *or* a `flagged` grounding result is itself a reason to escalate, added to the density/keyword triggers (`route.ts:394-398`).
-- The response returns a single `signals` object — `confidence`, `region`, `meanSimilarity`, `hitl{routeToHuman,triggers,reason}`, `reretrieval`, `satisficing`, `grounding` (`route.ts:416-429`), consumed by the UI's `QuerySignals` type (`app/page.tsx:34-73`).
+- A below-bar satisficing result *or* a `flagged` grounding result is itself a reason to escalate, added to the density/keyword triggers (`route.ts:529-533`).
+- The response returns a single `signals` object — `confidence`, `region`, `meanSimilarity`, `hitl{routeToHuman,triggers,reason}`, `reretrieval`, `satisficing`, `grounding`, `ood`, `cascade` (`route.ts:564-594`), consumed by the UI's `QuerySignals` type (`app/page.tsx:35-122`).
 
 ### R7 — UI surfacing (the user sees the trust signal)
 - A "consider human review" banner renders when `routeToHuman` is true, with human-readable trigger labels (`app/page.tsx:84-89`, `372-...`).
 - The grounding result renders as a flagged-statements callout or a "claims reconciled" note, honestly distinguishing `clean` from `deterministic-only` (`app/page.tsx:429-470`).
 - A subtle note shows when a re-retrieval was attempted/fired/skipped (`reretrievalNote`, `app/page.tsx:91-102`).
+
+### R8 — Pre-generation: out-of-distribution (OOD) short-circuit (conformal abstention)
+> Added after R1–R7, but it runs **first** on the answer path: immediately after the first retrieval, before the density/info-gain pipeline and any model call (`route.ts:186-242`).
+
+- Score how *surprising* the query is to the résumé corpus from the top-k cosine similarities the RPC already returned — **keyless**, no extra embedding/LLM/reranker call: `support = 0.6·coverage + 0.4·centroidProximity`, OOD `score = 1 − support` (`ood-score.ts`, weights echoed into the artifact; `decideOOD`, `ood-gate.ts:132-167`).
+- Abstain **iff** the OOD score is *strictly greater* than a **split-conformal-calibrated** threshold τ fit to a target abstain budget **α = 0.15** on the committed red-team run — **τ = 0.826013** at **n = 24** (the rank-`⌈(n+1)(1−α)⌉ = 22` order statistic). These are the committed values in [`ood-calibration.json`](../lib/quality-gates/ood-calibration.json), regenerated by [`scripts/calibrate-ood-gate.ts`](../scripts/calibrate-ood-gate.ts); full provenance, the held-out 50/50 split, and the small-n caveats live in [OOD_GATE_CALIBRATION.md](OOD_GATE_CALIBRATION.md).
+- On abstain, return the honest `OOD_ABSTAIN_MESSAGE` non-answer with `ood.abstained: true`, `hitl.routeToHuman: false`, and a `["off-resume-ood"]` trigger — **no LLM call, no fabricated verdict** (`route.ts:189-239`).
+- **Fail-open by construction:** when the sample is too small to certify α the artifact ships `threshold: null` and the gate **never abstains** (`decideOOD`, `ood-gate.ts:141-152`); it only runs when there *are* retrieved chunks — an empty first page is the "no résumé indexed" case handled by the no-documents branch, a different situation from "off-résumé query" (`route.ts:187`).
+- Reported realized in-sample abstain rate is **0.083333 (2/24)** — only the two clearly-off-résumé red-team queries (`cg-03` medical, `ec-02` gaming) score above τ — carried with its wide n = 24 Wilson interval, *not* as a distribution-free guarantee (OOD_GATE_CALIBRATION.md §2–3, §6).
+- The same offline replay produces a zero-model-spend cascade slice for the OOD→generation boundary (`losslessViolations = 0` on this corpus): the deterministic fast path denied **zero** answers the LLM tier would have rated above the quality bar (`cascade-replay.json`, OOD_GATE_CALIBRATION.md §4). This is a *measured* statement about the 24 committed queries, not a claim about future traffic.
 
 ---
 
@@ -138,7 +149,7 @@ The full funnel + event taxonomy lives in [METRICS_FRAMEWORK.md](METRICS_FRAMEWO
 - **Report path excluded.** `/api/agents/report` (the 8-node LangGraph orchestrator, `lib/report-graph.ts`) runs per-section evals but **not** the density/grounding gates. Cut to keep the first wiring on one surface; the chat path is where the red-team ran.
 - **Threshold calibration cut.** Shipped with unvalidated defaults; calibration needs real traffic (ROADMAP "Gated on the un-fakeable").
 - **Grounding semantic judge off by default.** Without `PACIOLI_API_KEY` + a judge mode, the gate runs deterministic-only (`grounding/config.ts:71-96`) — structural over-claims only. Honest, but not the full check.
-- **Memory-key fix cut.** The `userId = resumeId` aliasing (cross-session leakage, red-team finding #3) is mitigated for eval runs via `skipMemory` (`route.ts:99-131`) but not fixed for real users.
+- **Memory-key fix cut.** The `userId = resumeId` aliasing (cross-session leakage, red-team finding #3) is mitigated for eval runs via `skipMemory` (`route.ts:123-155`) but not fixed for real users.
 - **Reviewer inbox cut.** We route to human; we do not build the human's queue.
 
 ---
@@ -151,9 +162,10 @@ The capability is **config-gated, not feature-flag-gated** — the gates are alw
 |------|-----------|---------------|-------------------|
 | R1 readiness floor | `OPENAI_API_KEY` + Supabase env | active when keys present | `503` honest "not configured" (`service-config.ts`) |
 | R2 density/HITL | always on (uses RPC similarities) | active | escalates more, never less |
-| R3 re-retrieval | `skipMemory=false` + a stored profile | active for real users | benchmark runs pass `skipMemory:true` to measure base retrieval (`route.ts:160-162`) |
-| R4 satisficing | always on | active; capped to 1 iteration for benchmark runs (`route.ts:300-302`) | judge failure → single generation fallback |
+| R3 re-retrieval | `skipMemory=false` + a stored profile | active for real users | benchmark runs pass `skipMemory:true` to measure base retrieval (`route.ts:252-254`) |
+| R4 satisficing | always on | active; capped to 1 iteration for benchmark runs (`route.ts:435-437`) | judge failure → single generation fallback |
 | R5 grounding | `PACIOLI_RECONCILE_URL` (+ `PACIOLI_API_KEY`/judge for semantic) | off until URL set | `skipped` (not configured) — never blocks |
+| R8 OOD short-circuit | always on (uses RPC similarities); calibrated τ in `ood-calibration.json` | active when there are retrieved chunks | uncertifiable α (`threshold: null`) ⇒ **never abstains**; below τ ⇒ nothing changes |
 
 **Staged plan:**
 1. **Ship dark (today):** gates live, grounding URL unset → `skipped`. Density/satisficing already shaping answers.

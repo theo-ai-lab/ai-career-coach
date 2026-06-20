@@ -193,6 +193,13 @@ POST /api/query
        │    └──► supabase.rpc('match_documents_v2', { query_embedding, match_count: 6,
        │           p_resume_id, p_user_id }) → scope by resume_id / user_id inside SQL
        │
+       ├──► Pre-generation OOD short-circuit (lib/quality-gates/ood-gate.ts)
+       │    └──► decideOOD(first-page similarities): keyless OOD score = 1 − support;
+       │         if score > conformal-calibrated τ → ABSTAIN before any LLM call,
+       │         return the honest "not in your background" message + signals (no
+       │         fabrication, routeToHuman: false). Fail-open: an uncertifiable α
+       │         (threshold null) never abstains; only runs when chunks exist.
+       │
        ├──► Quality Gates (lib/quality-gates/)
        │    ├──► Data-density: confidence + HITL routing from chunk similarities
        │    ├──► Info-gain: profile-expanded reformulation; re-retrieve only if it
@@ -228,14 +235,21 @@ POST /api/query
                          hitl: { routeToHuman, triggers, reason },
                          reretrieval: { attempted, fired, infoGain, savedCall, improved },
                          satisficing: { iterations, stopReason, meetsQualityBar } | null,
-                         grounding: { status, checked, unsupported, overclaim, judgeMode, flagged } | null }
+                         grounding: { status, checked, unsupported, overclaim, judgeMode, flagged } | null,
+                         ood: { abstained, score, threshold, targetAbstainRate,
+                                coverage, centroidProximity, margin } | null,
+                         cascade: { gates: [{ gate, regime, locus, skippedExpensiveStep }],
+                                    measured: { boundary, alpha, expensiveShare,
+                                                disagreementRate, losslessViolations, n },
+                                    live? } | null }
 ```
 
 **Key Implementation Details:**
 - Config gate returns a clear 503 when keys are missing — no fabricated answer
 - Memory retrieval wrapped in try-catch (non-blocking)
 - Quality gates are pure/injectable; the route wires the real embedder + RPC + judge
-- Quality-gate thresholds are documented, unvalidated defaults (see module docstrings)
+- Pre-generation OOD short-circuit is keyless (reuses the first-page RPC similarities, no extra model call); abstains only above a split-conformal-calibrated threshold τ and short-circuits before generation (`lib/quality-gates/ood-gate.ts`, provenance in `docs/OOD_GATE_CALIBRATION.md`)
+- Quality-gate thresholds are documented, unvalidated defaults (see module docstrings), with one exception — the OOD abstention τ is split-conformal-calibrated to the committed red-team run (the single threshold fit to data; recalibrate on real traffic before trusting as a release gate)
 - A first-pass answer that already satisfices costs one generation + one judge call
 - Post-generation grounding gate is config-gated (`PACIOLI_RECONCILE_URL`); unset/unreachable degrades to a `skipped`/`unavailable` result and never blocks the answer
 - Session summarization runs asynchronously (zero latency impact)
