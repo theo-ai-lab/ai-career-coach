@@ -97,7 +97,6 @@ This document captures key technical and product decisions made throughout devel
 
 **Implementation:** 
 - `app/api/upload/route.ts`: 1000 tokens, 200 overlap
-- `app/api/ingest/route.ts`: 800 tokens, 200 overlap
 - Uses `RecursiveCharacterTextSplitter` from LangChain
 
 ---
@@ -360,7 +359,7 @@ This document captures key technical and product decisions made throughout devel
 | Mandatory for categories (v1 shipped) | Clear rules, safe | Slower for some use cases, may be unnecessary |
 | Hybrid (threshold + categories) | Flexible, safe | Complex, need to define rules |
 
-**Decision (v1):** Keyword-based detection across mandatory categories (salary, major pivots, legal, medical, mental health). Implementation lives in `lib/hitl-detection.ts`; surfaced via `components/HITLWarning.tsx` as a UI-level review gate.
+**Decision (v1):** Keyword-based detection across mandatory categories (salary, major pivots, legal, medical, mental health). Implementation lives in `lib/hitl-detection.ts`, which returns a `highStakes` boolean flag. Surfacing that flag in the UI is NOT wired — no review-gate component exists.
 
 **Decision (v2, planned):** Layer confidence-threshold gating on top of v1 once the live LLM-as-judge is sturdy enough to trust as an escalation signal. Red-team 2026-05-11 (see `data/eval-benchmark/red-team-observations.md`) surfaced that the live judge has a false-confirmation blind spot — v2 should not gate on judge confidence until that's addressed.
 

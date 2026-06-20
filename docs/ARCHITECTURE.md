@@ -2,7 +2,7 @@
 
 **Version:** 3.0
 **Last Updated:** May 2026
-**Status:** Deployed to Vercel.
+**Status:** Prototype — a Vercel frontend is live, but the early-2026 pilot's backend is no longer accessible
 
 ---
 
@@ -27,8 +27,8 @@ AI Career Coach is a RAG-powered career coaching application that provides perso
 ├─────────────────────────────────────────────────────────────────────┤
 │  Next.js Frontend (React 19 + Tailwind CSS + shadcn/ui)             │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐                 │
-│  │ Chat UI     │  │ File Upload │  │ Agent Buttons│                 │
-│  │             │  │             │  │             │                 │
+│  │ Chat UI     │  │ File Upload │  │ Agent UI    │                 │
+│  │             │  │             │  │ (planned)   │                 │
 │  │ - Messages  │  │ - PDF input │  │ - Cover Ltr │                 │
 │  │ - Session   │  │ - Progress  │  │ - Interview │                 │
 │  │ - Memory    │  │             │  │ - Strategy  │                 │
@@ -44,7 +44,6 @@ AI Career Coach is a RAG-powered career coaching application that provides perso
 │  │ Core Routes                                                   │   │
 │  │ POST /api/upload    - PDF parsing, chunking, embedding        │   │
 │  │ POST /api/query     - RAG retrieval + generation + memory     │   │
-│  │ POST /api/ingest    - Alternative ingestion (legacy)          │   │
 │  └──────────────────────────────────────────────────────────────┘   │
 │  ┌──────────────────────────────────────────────────────────────┐   │
 │  │ Agent Routes (7 specialized agents)                           │   │
@@ -176,7 +175,10 @@ User asks question
        ▼
 POST /api/query
        │
-       ├──► Extract: { query, resumeId, sessionId, messages }
+       ├──► Extract: { query, resumeId, sessionId, messages, skipMemory }
+       │
+       ├──► Config Gate (honesty)
+       │    └──► getServiceConfig(): missing OpenAI/Supabase key → 503 clear state
        │
        ├──► Memory Retrieval (non-blocking)
        │    ├──► getUserProfile(userId) → user_profiles
@@ -187,44 +189,74 @@ POST /api/query
        ├──► Embed query
        │    └──► OpenAI text-embedding-3-small
        │
-       ├──► Vector Search
-       │    └──► supabase.rpc('match_documents_v2', {
-       │           query_embedding: vector,
-       │           match_count: resumeId ? 20 : 6,
-       │           p_resume_id: resumeId,
-       │           p_user_id: userId
-       │         })
-       │    └──► Scope by resume_id / user_id inside SQL
-       │    └──► Slice to top 6 chunks
+       ├──► Vector Search (first page)
+       │    └──► supabase.rpc('match_documents_v2', { query_embedding, match_count: 6,
+       │           p_resume_id, p_user_id }) → scope by resume_id / user_id inside SQL
+       │
+       ├──► Pre-generation OOD short-circuit (lib/quality-gates/ood-gate.ts)
+       │    └──► decideOOD(first-page similarities): keyless OOD score = 1 − support;
+       │         if score > conformal-calibrated τ → ABSTAIN before any LLM call,
+       │         return the honest "not in your background" message + signals (no
+       │         fabrication, routeToHuman: false). Fail-open: an uncertifiable α
+       │         (threshold null) never abstains; only runs when chunks exist.
+       │
+       ├──► Quality Gates (lib/quality-gates/)
+       │    ├──► Data-density: confidence + HITL routing from chunk similarities
+       │    ├──► Info-gain: profile-expanded reformulation; re-retrieve only if it
+       │    │    carries new information (else skip the call); denser page wins
+       │    └──► Keyword high-stakes gate combined into the HITL decision
+       │
+       ├──► (no grounding → return "No relevant experience found." + signals, no LLM)
        │
        ├──► Build Grounded Prompt
-       │    ├──► Resume context (retrieved chunks)
+       │    ├──► Resume context (final retrieved chunks)
        │    ├──► Memory context (if available)
        │    ├──► Communication style adaptation
        │    └──► Natural memory reference instructions
        │
-       ├──► Generate Response
-       │    └──► GPT-4o-mini (temperature: 0.2)
-       │    └──► Model: gpt-4o-mini
+       ├──► Generate + Satisficing Stop
+       │    └──► runSatisficingLoop: GPT-4o-mini (temp 0.2) generate → LLM-as-judge;
+       │         stop when the answer clears the quality bar, else revise (bounded)
        │
        ├──► Fire-and-Forget Operations
-       │    ├──► summarizeSessionAsync() - Background session summary
-       │    └──► Evaluation (if enabled) - Background quality scoring
+       │    ├──► Store eval row (non-blocking)
+       │    └──► summarizeSessionAsync() - Background session summary
+       │
+       ├──► Post-generation Grounding Gate (lib/grounding/)
+       │    └──► runGroundingGate(): reconcile the answer's factual claims vs the
+       │         retrieved résumé via Pacioli; config-gated, never blocks/fabricates
        │
        └──► Return Response
             - answer: string
             - sources: [{ content, similarity }]
             - sessionId: string
+            - scores: { overall, actionability, personalization, honesty, grounding } | null
+            - signals: { confidence, region, meanSimilarity,
+                         hitl: { routeToHuman, triggers, reason },
+                         reretrieval: { attempted, fired, infoGain, savedCall, improved },
+                         satisficing: { iterations, stopReason, meetsQualityBar } | null,
+                         grounding: { status, checked, unsupported, overclaim, judgeMode, flagged } | null,
+                         ood: { abstained, score, threshold, targetAbstainRate,
+                                coverage, centroidProximity, margin } | null,
+                         cascade: { gates: [{ gate, regime, locus, skippedExpensiveStep }],
+                                    measured: { boundary, alpha, expensiveShare,
+                                                disagreementRate, losslessViolations, n },
+                                    live? } | null }
 ```
 
 **Key Implementation Details:**
+- Config gate returns a clear 503 when keys are missing — no fabricated answer
 - Memory retrieval wrapped in try-catch (non-blocking)
-- Returns empty context if memory fails
+- Quality gates are pure/injectable; the route wires the real embedder + RPC + judge
+- Pre-generation OOD short-circuit is keyless (reuses the first-page RPC similarities, no extra model call); abstains only above a split-conformal-calibrated threshold τ and short-circuits before generation (`lib/quality-gates/ood-gate.ts`, provenance in `docs/OOD_GATE_CALIBRATION.md`)
+- Quality-gate thresholds are documented, unvalidated defaults (see module docstrings), with one exception — the OOD abstention τ is split-conformal-calibrated to the committed red-team run (the single threshold fit to data; recalibrate on real traffic before trusting as a release gate)
+- A first-pass answer that already satisfices costs one generation + one judge call
+- Post-generation grounding gate is config-gated (`PACIOLI_RECONCILE_URL`); unset/unreachable degrades to a `skipped`/`unavailable` result and never blocks the answer
 - Session summarization runs asynchronously (zero latency impact)
 - Top-K retrieval: 6 chunks (configurable)
 - Filtering by `resume_id` ensures user isolation
 
-**Code:** `app/api/query/route.ts`, `lib/memory/retrieval.ts`
+**Code:** `app/api/query/route.ts`, `lib/quality-gates/`, `lib/grounding/`, `lib/service-config.ts`, `lib/memory/retrieval.ts`
 
 ---
 
@@ -363,7 +395,7 @@ Response Generated
 
 **RPC Function:**
 - `match_documents_v2(query_embedding vector, match_count int, p_resume_id text, p_user_id text)` → Canonical scoped vector search returning top-K similar documents with similarity scores
-- `match_documents` v1 is absent in production.
+- `match_documents` v1 was absent in the pilot's production database.
 
 ---
 
@@ -461,7 +493,7 @@ Response Generated
 | **Text Splitting** | LangChain | RecursiveCharacterTextSplitter |
 | **Orchestration** | LangGraph | 1.0.2 (for multi-agent) |
 | **Analytics** | PostHog | 1.297.2 (optional) |
-| **Deployment** | Vercel | (deployed) |
+| **Deployment** | Vercel | (planned) |
 
 ---
 
@@ -480,7 +512,7 @@ Response Generated
 - **Error Handling:** Graceful degradation, no sensitive data in error messages
 
 ### Data Privacy
-- **No PII in Logs:** User data not logged in production
+- **No PII in Logs:** User data is not logged when deployed
 - **Retention Policy:** (TBD) - Need to define memory retention periods
 - **Data Export:** (Planned) - User data export functionality
 
@@ -606,9 +638,9 @@ Response Generated
 
 ### Current
 - **Development:** Local Next.js dev server
-- **Production:** (Planned) Vercel deployment
+- **Production:** Vercel frontend is live; the early-2026 pilot's Supabase backend is no longer accessible
 
-### Production Setup (Planned)
+### Production Setup
 ```
 GitHub Repository
        │

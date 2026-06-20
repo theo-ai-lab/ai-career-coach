@@ -5,8 +5,8 @@ A controlled synthetic benchmark designed to test whether the LLM-as-judge rubri
 This is the methodology document. Cases live in `cases/`. Personas live in `personas/`. Results from each run live in `results/YYYY-MM-DD.json`. Run with `node scripts/run-eval-benchmark.cjs --smoke` (the runner is CJS + native fetch because tsx + `@langchain/openai` hangs on module load in this Node 24 environment — see the script preamble).
 
 > **Models referenced in this repo — three distinct roles (don't conflate them):**
-> - **Live app generation** — `gpt-4o-mini` (temperature 0.2): what the deployed product runs to write responses today.
-> - **Current in-app eval judge** — `gpt-4o-mini` (temperature 0): the LLM-as-judge scoring production responses today (and the judge behind the May 2026 red-team run). See [`docs/EVAL_DESIGN.md`](../../docs/EVAL_DESIGN.md).
+> - **Live app generation** — `gpt-4o-mini` (temperature 0.2): during the early-2026 pilot the deployed product ran this model to write responses; the pilot is no longer accessible.
+> - **Current in-app eval judge** — `gpt-4o-mini` (temperature 0): the LLM-as-judge that scored the pilot's responses (and the judge behind the May 2026 red-team run). See [`docs/EVAL_DESIGN.md`](../../docs/EVAL_DESIGN.md).
 > - **Planned benchmark judges / council** — the premium cross-vendor judges and council described below are the *target design* for the offline benchmark. The specific premium model IDs in this document (e.g. `claude-opus-4.7`, `gpt-5.4`, `gemini-3.1-pro`) are illustrative/planned targets, not models that have been run against this benchmark yet.
 
 ---
@@ -54,7 +54,7 @@ The benchmark fails on a dimension if the corresponding adversarial case scores 
 
 **50 synthetic personas** (`personas/*.json`) — none correspond to a real person. Each persona has a detailed resume text with enough surface area to ground responses against.
 
-**250 normal cases** (Planned) (`cases/normal/*.json`) — 5 queries per persona, selected to exercise different rubric dimensions. The system generates the response via the production code path. The judge scores it.
+**250 normal cases** (Planned) (`cases/normal/*.json`) — 5 queries per persona, selected to exercise different rubric dimensions. Each response is generated through the real application code path (the `/api/query` route, not a mock). The judge scores it.
 
 **25 adversarial cases** (Planned) (`cases/adversarial/*.json`) — each pairs a persona+query with a **deliberately bad response**, plus an `expected_max_score` for the dimension being tested. The judge scores the bad response. If the score exceeds the max, the rubric is broken on that dimension. The 25 red-team prompts in `red-team-prompts.json` (executed 2026-05-11 against production) are the empirical antecedent that the adversarial case set will be derived from.
 
@@ -144,7 +144,7 @@ Same 275 cases (Planned), same generation+judge pipeline, swapped embedding mode
 
 | Embedding | Source | Why test |
 |-----------|--------|----------|
-| `text-embedding-3-small` | OpenAI (current) | Baseline — what the live system uses |
+| `text-embedding-3-small` | OpenAI (current) | Baseline — what the pilot system used |
 | `voyage-3-large` | Voyage AI | +10.58% vs `text-embedding-3-large` per published benchmarks |
 | `embed-v4.0` | Cohere | Strong on long documents and multilingual |
 | `gemini-embedding-001` | Google | Industry-leading on cross-lingual + multimodal |
@@ -237,12 +237,12 @@ Runtime: ~25-40 minutes with parallelism. The runner pools 10 concurrent request
 
 ## Environment setup
 
-The benchmark is a local development tool. All keys below live in `.env.local` (project root, gitignored). Production Vercel only needs the keys the live app already uses (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `OPENAI_API_KEY`); the benchmark-only keys stay local.
+The benchmark is a local development tool. All keys below live in `.env.local` (project root, gitignored). The early-2026 pilot's Vercel deployment only needed the keys the pilot app already used (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `OPENAI_API_KEY`); the benchmark-only keys stay local.
 
 | Key | Required for | Where to get it |
 |-----|--------------|-----------------|
 | `OPENROUTER_API_KEY` | All generation + council judge calls (5 models routed through one API) | https://openrouter.ai/keys |
-| `OPENAI_API_KEY` | Embedding comparison: text-embedding-3-small baseline | already set for the live app |
+| `OPENAI_API_KEY` | Embedding comparison: text-embedding-3-small baseline | was already set for the pilot app |
 | `VOYAGE_API_KEY` | Embedding comparison only | https://www.voyageai.com/ |
 | `COHERE_API_KEY` | Embedding comparison only | https://dashboard.cohere.com/api-keys |
 | `GEMINI_API_KEY` | Embedding comparison only | https://aistudio.google.com/apikey |
@@ -276,7 +276,7 @@ The runner:
 6. Computes statistics: bootstrap CIs on ordinal scores, Krippendorff's α on the council subset, adversarial pass-rate as a separate binary metric
 7. Writes `results/YYYY-MM-DD.json`
 
-Production live-eval scores are written to the Supabase `evals` table and inspected via direct queries — separate from these benchmark results files. (An earlier unauthenticated `/admin/evals` view was removed before release.) The per-persona jaggedness visualization on top of benchmark results is on the post-v3 roadmap, not yet shipped.
+During the early-2026 pilot, the deployed product's eval scores were written to the Supabase `evals` table and inspected via direct queries — separate from these benchmark results files; that pilot backend is no longer accessible. (An earlier unauthenticated `/admin/evals` view was removed before release.) The per-persona jaggedness visualization on top of benchmark results is on the post-v3 roadmap, not yet shipped.
 
 ---
 
@@ -304,7 +304,7 @@ The eng review (May 2026) flagged three methodology refinements that need first-
 
 ## Versioning + iteration cycle
 
-Results are dated. Re-running the benchmark on the same code generates a new dated results file. Every architectural change to the production system (RAG upgrade, prompt rewrite, model swap, embedding migration) **must** be paired with a benchmark re-run, with both before/after results files retained. Score deltas without a corresponding code change indicate judge variance and trigger a position bias check.
+Results are dated. Re-running the benchmark on the same code generates a new dated results file. Every architectural change (RAG upgrade, prompt rewrite, model swap, embedding migration) **must** be paired with a benchmark re-run, with both before/after results files retained. Score deltas without a corresponding code change indicate judge variance and trigger a position bias check.
 
 A score delta on an unchanged rubric is a regression. A score delta after a deliberate rubric change is the unit of progress.
 

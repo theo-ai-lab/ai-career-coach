@@ -1,22 +1,21 @@
 # AI Career Coach
 
-**Working prototype (real users) — AI career coaching with multi-agent orchestration, resume-grounded RAG, and a 4-dimension LLM-as-judge eval rubric. Deployed on Vercel.**
+**Prototype — AI career coaching with multi-agent orchestration, resume-grounded RAG, and a 4-dimension LLM-as-judge eval rubric. A Vercel frontend is live, but the early-2026 pilot's backend is no longer accessible. The early-2026 pilot analytics are no longer accessible, so the adversarial eval (not usage metrics) is the evidence here.**
 
 Built as a solo project to solve a real problem: career advice is either generic (ChatGPT) or expensive (human coaches). This platform delivers personalized, grounded career guidance using specialized AI agents that collaborate through a shared memory system.
 
-**57 users · 900+ queries · a preregistered, falsifiable 4-dimension LLM-as-judge eval framework — N=6 cases on disk today (v3 scaffold), N=12 cross-vendor adversarial target (v4)** — see [COVERAGE.md](data/eval-benchmark/COVERAGE.md) for the canonical case inventory and [EVAL_DESIGN.md](docs/EVAL_DESIGN.md) for the rubric.
-
-<!-- Usage figures (57 users / 900+ queries, early-2026 pilot) are real — measured in PostHog/Supabase during the live pilot. The analytics lived in a USC-tied account that is no longer accessible, so the raw export can't be re-shared and isn't reconstructable from this repo. -->
+**A preregistered, falsifiable 4-dimension LLM-as-judge eval framework — N=6 cases on disk today (v3 scaffold), N=12 cross-vendor adversarial target (v4)** — see [COVERAGE.md](data/eval-benchmark/COVERAGE.md) for the canonical case inventory and [EVAL_DESIGN.md](docs/EVAL_DESIGN.md) for the rubric. *(An early-2026 pilot ran with ~57 users / 900+ queries; those analytics lived in an account that is no longer accessible and can't be re-verified from this repo — see the note below. The committed adversarial eval, not usage metrics, is the evidence here.)*
 
 
 
-[LinkedIn](https://linkedin.com/in/theobermudez) · [Architecture](docs/ARCHITECTURE.md) · [Decision Log](docs/DECISION_LOG.md) · [Eval Framework](docs/EVAL_DESIGN.md)
+[LinkedIn](https://linkedin.com/in/theobermudez) · [PRD](docs/PRD.md) · [Metrics](docs/METRICS_FRAMEWORK.md) · [Roadmap](docs/ROADMAP.md) · [Architecture](docs/ARCHITECTURE.md) · [Decision Log](docs/DECISION_LOG.md) · [Eval Framework](docs/EVAL_DESIGN.md)
 
 ### What to read first
 
 - [**Eval benchmark methodology**](data/eval-benchmark/README.md) — Three Gulfs anchoring, preregistered judge architecture, falsifiability conditions, cost budget. The methodology document.
 - [**Red-team findings (May 2026)**](data/eval-benchmark/red-team-observations.md) — 25 adversarial prompts run against production. 6 failed / 9 material / 5 minor / 5 none. Strongest finding: the live LLM-as-judge scored a clear false-confirmation 85/100 on `mr-02`, exposing a blind spot in the rubric itself.
 - [**Preregistration memo (decision pending data)**](data/eval-benchmark/PM_DECISION_MEMO.md) — a preregistered three-way decision threshold for a *planned* production model migration (gpt-4o-mini → a newer-generation model pair; the specific target IDs are illustrative and not finalized). Thresholds are fixed in advance; direction-of-effect is the gating signal, CI bounds are reported for transparency only. The run results are not yet authored — current grid is N=6, v4 target N=12.
+- [**OOD gate calibration**](docs/OOD_GATE_CALIBRATION.md) — how the pre-generation abstention threshold is **calibrated** (split-conformal to a target abstain budget), held-out scored once, and verified — not hand-set. The score's functional form and α are fixed a priori; only τ is fit, and a script + test re-derive it from the committed red-team data.
 - [**Decision Log**](docs/DECISION_LOG.md) — 15 dated decisions with options-considered tables and implementation refs. Decisions 1-13 documented retroactively (see header note); Decisions 14-15 written contemporaneously. Example: Decision 14 (LLM-as-judge temperature 0) explains why eval reproducibility took precedence over generation diversity.
 
 ![App Screenshot](docs/screenshot.png)
@@ -27,7 +26,7 @@ Built as a solo project to solve a real problem: career advice is either generic
 
 Built solo from November 2025 onward. Three architectural milestones live in the public commit log: working RAG with grounded retrieval (Nov 2025), LLM-as-judge evaluation and three-layer memory system (Dec 2025), and multi-agent LangGraph orchestration with HITL detection (Dec 2025). Full architecture decisions in [docs/DECISION_LOG.md](docs/DECISION_LOG.md), evaluation methodology in [docs/EVAL_DESIGN.md](docs/EVAL_DESIGN.md).
 
-This is a working prototype with a real user base. Analytics (query volume, eval scores) live in PostHog and Supabase — those data sources are not committed to the repo. There is no auth, rate limiting, or end-to-end outcome tracking yet — those are planned, not built.
+This is a prototype: a Vercel frontend is live, but the early-2026 pilot's backend is no longer accessible. An early-2026 pilot ran with real users, but its analytics (query volume, eval scores) lived in a PostHog/Supabase account that is no longer accessible — so those usage numbers can't be re-verified from this repo, and the committed adversarial eval is the evidence here. There is no auth, rate limiting, or end-to-end outcome tracking yet — those are planned, not built.
 
 Known failure modes surfaced by the red-team (May 2026) — including a cross-conversation memory leak in `/api/query` traced to `userId = resumeId` aliasing — are documented in [`data/eval-benchmark/red-team-observations.md`](data/eval-benchmark/red-team-observations.md) and partially mitigated. The fix shipped behind a `skipMemory: true` request-body flag (see `app/api/query/route.ts` and the comment block at lines 28-33) so eval runs get clean stateless responses without changing default behavior for real users.
 
@@ -77,6 +76,25 @@ Known failure modes surfaced by the red-team (May 2026) — including a cross-co
 6. **Generate** — `gpt-4o-mini` with strict grounding prompt (temperature: 0.2)
 7. **Track** — PostHog analytics on every query and response
 
+### Quality Gates (live request path)
+
+> Product framing of this capability ("Trustworthy Answering") lives in [docs/PRD.md](docs/PRD.md); the signals below map to a measurable event taxonomy in [docs/METRICS_FRAMEWORK.md](docs/METRICS_FRAMEWORK.md); what's next is in [docs/ROADMAP.md](docs/ROADMAP.md).
+
+`/api/query` runs four reliability gates from `lib/quality-gates/` on the live path; their signals are returned in the response payload and surfaced in the UI. Each is a **cheap → expensive** boundary: a cheap deterministic tier resolves what it can and only escalates to the expensive tier it guards.
+
+- **OOD / retrieval-surprise screen** (`ood-gate.ts`) — *regime: model-free · locus: turn*. **Before generation**, scores how *surprising* the query is to the résumé corpus from the top-k cosine similarities the pgvector RPC **already returned** (KEYLESS — no extra embedding/LLM call). Above a **conformal-calibrated** threshold it short-circuits a clearly-off-résumé query ("which Pokémon should I use?", "should I raise my Lexapro dose?") with an honest "that isn't in your background — want to add it?" instead of letting the model confabulate. The threshold is **not a magic constant**: it is the split-conformal quantile for a target abstain budget (α = 0.15), calibrated from the committed red-team run and documented in [docs/OOD_GATE_CALIBRATION.md](docs/OOD_GATE_CALIBRATION.md). Below threshold the request falls through to the gates below, unchanged.
+- **Data-density confidence + HITL routing** (`data-density.ts`) — *regime: model-free · locus: turn*. Estimates how well the retrieved chunks support the query from their cosine similarities. A sparse region lowers the stated confidence and routes to human review; this is combined with the existing keyword high-stakes gate (`hitl-detection.ts`).
+- **Info-gain-gated re-retrieval** (`info-gain.ts`, composed in `retrieval-pipeline.ts`) — *regime: model-free · locus: step*. When the first retrieval is not dense, the query is expanded with the user's stored profile terms (a deterministic, key-free reformulation) and a second retrieval round-trip fires **only** if that reformulation carries enough new information; otherwise the redundant call is skipped. The denser page wins.
+- **Satisficing stop** (`satisficing.ts`) — *regime: model-based-residual · locus: turn*. Generation is judged against the coaching-quality rubric and stops as soon as the answer clears the bar, only revising when it does not. A well-scored first draft costs exactly one generation + one judge call.
+
+**Per-gate cascade telemetry** (`cascade-telemetry.ts`) logs each gate's skip-vs-escalate decision and exposes one consistent contract per cheap→expensive boundary: `alpha` (fraction the cheap tier resolved without escalating), `disagreementRate` (when both tiers run), and `losslessViolations` (cheap resolutions the expensive tier would *not* have made). For the OOD-gate → LLM-generation boundary these are **measured offline** by replaying the committed red-team run against its already-recorded judge scores — zero extra model spend:
+
+> On the committed 24-query red-team replay, the deterministic OOD fast path resolves 8.3% of queries (the clearly-off-résumé tail) before any LLM call with 0 lossless violations and 0.0% measured disagreement; the expensive LLM-generation + judge tier touches the remaining 91.7%.
+
+(That sentence is regenerated from the committed `cascade-replay.json` by `buildMeasuredSentence()`, so the docs and the code cannot disagree. n = 24, so it is a measured statement about this corpus with wide small-n intervals — not a guarantee about future traffic.) The other three gates expose a live runtime acceptance-rate counter but are honestly marked `losslessMeasured: false`: a lossless count for them needs a replay corpus that ran both the skip and no-skip variants through the judge, which is not committed, so it is not fabricated.
+
+> Thresholds (`sparseSimilarity`, `denseSimilarity`, info-gain weights, satisficing targets) are documented, **unvalidated defaults** — they prove the wiring, not a tuned operating point, and must be calibrated against real traces before being trusted as release gates. The OOD threshold is the exception: it is **calibrated** (split-conformal), with a held-out split scored once and a regenerate/verify script. The gates' decision logic is pure and unit-tested offline (`npm run test:quality-gates`).
+
 ### Multi-Agent Orchestration
 The agent layer runs as a LangGraph `StateGraph` (see `lib/report-graph.ts`):
 
@@ -90,7 +108,9 @@ The agent layer runs as a LangGraph `StateGraph` (see `lib/report-graph.ts`):
 | **Strategy Advisor** | 6-month strategy plan with monthly breakdown | `generateStrategy`, `strategyPlanNode` |
 | **Report Compiler** | Aggregate all outputs into a final markdown report | `compileReportNode` |
 
-Routing uses one conditional edge: job-matching runs only when a job description is provided. The rest of the graph executes sequentially with parallel branches for interview prep + strategy plan. High-stakes outputs (cover letters, career pivots) trigger a UI-level human review gate via `lib/hitl-detection.ts` — the user is alerted before relying on the output.
+Routing uses one conditional edge: job-matching runs only when a job description is provided. The rest of the graph executes sequentially with parallel branches for interview prep + strategy plan. High-stakes outputs (cover letters, career pivots) are flagged by `lib/hitl-detection.ts` (`detectHighStakes`). On the chat path (`/api/query`) this keyword gate is now combined with the data-density gate and surfaced as a "consider human review" banner in the UI. The per-agent cover-letter/strategy routes still only set the flag on their response — surfacing it in the report UI is pending.
+
+The orchestrator itself is reachable from the shipped UI via the **Generate full report** action, which calls `/api/agents/report` and renders the compiled markdown with explicit loading / error / result states.
 
 ### Evaluation Framework
 Every query-response pair runs through an async LLM-as-judge evaluation (see `lib/evals/coaching-quality.ts`):
@@ -101,7 +121,7 @@ Every query-response pair runs through an async LLM-as-judge evaluation (see `li
 - Honesty — Does it acknowledge limitations and uncertainty?
 - Grounding — Is every claim traceable to retrieved context?
 
-Composite score is the mean of 4 LLM-judge dimensions (actionability, personalization, honesty, grounding), scaled 0–100. Responses scoring below 75 surface a low-confidence warning in the UI.
+Composite score is the mean of 4 LLM-judge dimensions (actionability, personalization, honesty, grounding), scaled 0–100. The chat UI surfaces a low-confidence / human-review banner driven by the live quality-gate signals (sparse data density, a high-stakes keyword, or an answer that did not clear the satisficing quality bar), plus a subtle indicator when an info-gain-gated re-retrieval was attempted, fired, or skipped.
 
 The evaluation methodology follows a **continuous calibration** approach: identify failure mode → trace through agent logs → adjust routing or prompt logic → re-run eval suite → measure delta.
 
@@ -138,14 +158,12 @@ Three-layer architecture with different retention and retrieval patterns:
 
 ```
 app/
-├── page.tsx                              # main UI: chat, upload, agent buttons, report download
+├── page.tsx                              # main UI: chat + resume upload + full report (calls /api/query, /api/upload, /api/agents/report)
 ├── layout.tsx                            # root layout
 ├── providers.tsx                         # PostHog provider
 └── api/
     ├── upload/route.ts                   # PDF → chunk → embed → store
     ├── query/route.ts                    # RAG retrieval → grounded generation (memory-aware)
-    ├── ingest/route.ts                   # generic document ingestion
-    ├── debug/route.ts                    # debug helper
     ├── agents/
     │   ├── resume/route.ts               # resume analyzer
     │   ├── gap/route.ts                  # gap finder
@@ -158,15 +176,26 @@ app/
         └── coaching-quality/route.ts     # standalone LLM-as-judge endpoint
 
 components/
-├── HITLWarning.tsx                       # human review banner for high-stakes outputs
 └── ui/                                   # shadcn primitives (button, card, input, scroll-area)
 
 lib/
 ├── rag.ts                                # resume context retrieval, chat client
 ├── supabase.ts                           # Supabase client
+├── service-config.ts                     # env/key readiness gate (honest 503 vs fake answer)
 ├── hitl-detection.ts                     # high-stakes keyword detection
 ├── report-graph.ts                       # LangGraph StateGraph orchestration
 ├── utils.ts                              # tailwind class merger
+├── quality-gates/                        # live reliability gates (wired into /api/query)
+│   ├── ood-gate.ts                       # pre-generation OOD screen (conformal-calibrated, keyless)
+│   ├── ood-score.ts                      # pure OOD score + split-conformal / Wilson primitives
+│   ├── ood-calibration.json              # committed calibrated threshold τ (regenerated, not hand-set)
+│   ├── cascade-telemetry.ts              # per-gate alpha telemetry + suite cascade contract
+│   ├── cascade-replay.json               # committed measured cascade slice (offline, zero model spend)
+│   ├── data-density.ts                   # density confidence + HITL routing
+│   ├── info-gain.ts                      # info-gain-gated re-retrieval
+│   ├── satisficing.ts                    # satisficing stop for the critique→revise loop
+│   ├── retrieval-pipeline.ts             # composes the gates into one retrieval decision
+│   └── vector-math.ts                    # pure cosine/kNN helpers (+ *.test.ts for each)
 ├── agents/
 │   ├── resume-analyzer/                  # node.ts + schema.ts
 │   ├── gap-finder/                       # node.ts + schema.ts
@@ -225,7 +254,7 @@ Requires Supabase project with pgvector extension enabled. SQL setup files at re
 | **Async eval (fire-and-forget)** | Zero latency impact on user experience — eval runs after response delivery |
 | **Three-layer memory** | Different information types need different retention policies and retrieval patterns |
 | **Temperature 0.2 for generation** | Prioritizes factual grounding over creative responses — career advice should be reliable, not novel |
-| **UI-level human review on high-stakes** | Cover letters and career-pivot advice carry real consequences — `lib/hitl-detection.ts` flags the response and surfaces a review banner so the user reads with appropriate caution |
+| **High-stakes detection + data-density HITL** | Cover letters and career-pivot advice carry real consequences — `lib/hitl-detection.ts` flags high-stakes keywords, now combined on the chat path with the data-density confidence gate and surfaced as a "consider human review" banner. Per-agent report-route flags are not yet surfaced in the report UI |
 
 ---
 
@@ -243,4 +272,4 @@ Error budgets govern releases: if any eval dimension drops below threshold, the 
 
 ---
 
-*Built by [Theo Bermudez](https://linkedin.com/in/theobermudez) · USC Marshall & Viterbi '24*
+*Built by [Theo Bermudez](https://linkedin.com/in/theobermudez)*

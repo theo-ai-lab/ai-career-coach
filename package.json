@@ -24,7 +24,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test lib/quality-gates/*.test.ts lib/grounding/*.test.ts lib/*.test.ts",
+    "test:quality-gates": "tsx --test lib/quality-gates/*.test.ts",
+    "test:grounding": "tsx --test lib/grounding/*.test.ts"
   },
   "dependencies": {
     "@langchain/community": "^1.0.4",

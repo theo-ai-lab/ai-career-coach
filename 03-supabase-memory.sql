@@ -38,7 +38,7 @@ CREATE INDEX IF NOT EXISTS idx_session_memories_created ON session_memories(crea
 -- RLS: memory tables hold per-user profile and conversation data and are
 -- written/read exclusively through the service-role key (lib/memory/*.ts).
 -- Security remediation 2026-05-14: the previous "Allow all operations ... USING (true)"
--- policies let any anon-key holder (i.e. anyone viewing the deployed site)
+-- policies let any anon-key holder (i.e., during the pilot, anyone viewing the site)
 -- read, write, or delete any user's profile and session memories. Restricted
 -- to service_role only, mirroring the evals-table pattern in 04-supabase-evals.sql.
 ALTER TABLE user_profiles ENABLE ROW LEVEL SECURITY;
