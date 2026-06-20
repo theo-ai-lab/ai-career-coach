@@ -113,12 +113,12 @@ Each requirement is **R**ealized in code today. Citations are `file:line` ranges
 
 ### R6 — One escalation decision + one signals payload
 - A below-bar satisficing result *or* a `flagged` grounding result is itself a reason to escalate, added to the density/keyword triggers (`route.ts:529-533`).
-- The response returns a single `signals` object — `confidence`, `region`, `meanSimilarity`, `hitl{routeToHuman,triggers,reason}`, `reretrieval`, `satisficing`, `grounding`, `ood`, `cascade` (`route.ts:564-594`), consumed by the UI's `QuerySignals` type (`app/page.tsx:35-122`).
+- The response returns a single `signals` object — `confidence`, `region`, `meanSimilarity`, `hitl{routeToHuman,triggers,reason}`, `reretrieval`, `satisficing`, `grounding`, `ood`, `cascade` (`route.ts:564-594`), consumed by the UI's `QuerySignals` type (`app/page.tsx`).
 
 ### R7 — UI surfacing (the user sees the trust signal)
-- A "consider human review" banner renders when `routeToHuman` is true, with human-readable trigger labels (`app/page.tsx:84-89`, `372-...`).
-- The grounding result renders as a flagged-statements callout or a "claims reconciled" note, honestly distinguishing `clean` from `deterministic-only` (`app/page.tsx:429-470`).
-- A subtle note shows when a re-retrieval was attempted/fired/skipped (`reretrievalNote`, `app/page.tsx:91-102`).
+- A "consider human review" banner renders when `routeToHuman` is true, with human-readable trigger labels (the HITL banner in `app/page.tsx`).
+- The grounding result renders as a flagged-statements callout or a "claims reconciled" note, honestly distinguishing `clean` from `deterministic-only` (the grounding callout in `app/page.tsx`).
+- A subtle note shows when a re-retrieval was attempted/fired/skipped (the `reretrievalNote` helper in `app/page.tsx`).
 
 ### R8 — Pre-generation: out-of-distribution (OOD) short-circuit (conformal abstention)
 > Added after R1–R7, but it runs **first** on the answer path: immediately after the first retrieval, before the density/info-gain pipeline and any model call (`route.ts:186-242`).
