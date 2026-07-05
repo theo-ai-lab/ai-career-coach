@@ -1,0 +1,72 @@
+# Eval-gated CI: every claim this repo documents is re-derived from the
+# committed data on every push, and the build fails on drift.
+#
+#   test                 the keyless suite (node:test via tsx) — no env vars,
+#                        no API keys, no network.
+#   claims-drift         re-runs the tau calibration and the measured-sentence
+#                        generator against the committed red-team replay and
+#                        fails if the docs' numbers no longer match.
+#   coverage-consistency counts eval case files on disk and fails if the
+#                        COVERAGE.md grid disagrees.
+#
+# Every step is runnable locally: npm test, npm run check:claims,
+# npm run check:coverage.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install (lockfile-exact)
+        run: npm ci
+      - name: Keyless test suite
+        run: npm test
+
+  claims-drift:
+    name: claims-drift
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install (lockfile-exact)
+        run: npm ci
+      - name: Committed calibration artifacts match the red-team data
+        run: npx tsx scripts/calibrate-ood-gate.ts --check
+      - name: Documented calibration numbers match the re-derivation
+        run: npx tsx scripts/ci/check-calibration-docs.ts
+      - name: README measured sentence byte-matches buildMeasuredSentence()
+        run: npx tsx scripts/ci/check-readme-sentence.ts
+
+  coverage-consistency:
+    name: coverage-consistency
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+      - name: COVERAGE.md case counts match files on disk
+        run: node scripts/ci/check-coverage-counts.mjs
