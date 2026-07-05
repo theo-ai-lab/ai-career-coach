@@ -27,7 +27,9 @@
     "typecheck": "tsc --noEmit",
     "test": "tsx --test lib/quality-gates/*.test.ts lib/grounding/*.test.ts lib/*.test.ts",
     "test:quality-gates": "tsx --test lib/quality-gates/*.test.ts",
-    "test:grounding": "tsx --test lib/grounding/*.test.ts"
+    "test:grounding": "tsx --test lib/grounding/*.test.ts",
+    "check:claims": "tsx scripts/calibrate-ood-gate.ts --check && tsx scripts/ci/check-calibration-docs.ts && tsx scripts/ci/check-readme-sentence.ts",
+    "check:coverage": "node scripts/ci/check-coverage-counts.mjs"
   },
   "dependencies": {
     "@langchain/community": "^1.0.4",
