@@ -1,5 +1,7 @@
 # AI Career Coach
 
+[![CI](https://github.com/theo-ai-lab/ai-career-coach/actions/workflows/ci.yml/badge.svg)](https://github.com/theo-ai-lab/ai-career-coach/actions/workflows/ci.yml)
+
 **Prototype — AI career coaching with multi-agent orchestration, resume-grounded RAG, and a 4-dimension LLM-as-judge eval rubric. A Vercel frontend is live, but the early-2026 pilot's backend is no longer accessible. The early-2026 pilot analytics are no longer accessible, so the adversarial eval (not usage metrics) is the evidence here.**
 
 Built as a solo project to solve a real problem: career advice is either generic (ChatGPT) or expensive (human coaches). This platform delivers personalized, grounded career guidance using specialized AI agents that collaborate through a shared memory system.
@@ -91,7 +93,7 @@ Known failure modes surfaced by the red-team (May 2026) — including a cross-co
 
 > On the committed 24-query red-team replay, the deterministic OOD fast path resolves 8.3% of queries (the clearly-off-résumé tail) before any LLM call with 0 lossless violations and 0.0% measured disagreement; the expensive LLM-generation + judge tier touches the remaining 91.7%.
 
-(That sentence is regenerated from the committed `cascade-replay.json` by `buildMeasuredSentence()`, so the docs and the code cannot disagree. n = 24, so it is a measured statement about this corpus with wide small-n intervals — not a guarantee about future traffic.) The other three gates expose a live runtime acceptance-rate counter but are honestly marked `losslessMeasured: false`: a lossless count for them needs a replay corpus that ran both the skip and no-skip variants through the judge, which is not committed, so it is not fabricated.
+(That sentence is regenerated from the committed `cascade-replay.json` by `buildMeasuredSentence()`, so the docs and the code cannot disagree — CI byte-compares the two on every push (`npm run check:claims`) and fails the build on drift. n = 24, so it is a measured statement about this corpus with wide small-n intervals — not a guarantee about future traffic.) The other three gates expose a live runtime acceptance-rate counter but are honestly marked `losslessMeasured: false`: a lossless count for them needs a replay corpus that ran both the skip and no-skip variants through the judge, which is not committed, so it is not fabricated.
 
 > Thresholds (`sparseSimilarity`, `denseSimilarity`, info-gain weights, satisficing targets) are documented, **unvalidated defaults** — they prove the wiring, not a tuned operating point, and must be calibrated against real traces before being trusted as release gates. The OOD threshold is the exception: it is **calibrated** (split-conformal), with a held-out split scored once and a regenerate/verify script. The gates' decision logic is pure and unit-tested offline (`npm run test:quality-gates`).
 

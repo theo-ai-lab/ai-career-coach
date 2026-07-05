@@ -173,6 +173,12 @@ from the committed red-team data using the shared primitives and asserts they
 equal the committed artifacts — so the shipped threshold can never silently
 diverge from this document.
 
+CI enforces both on every push (the `claims-drift` job in
+`.github/workflows/ci.yml`): it runs the `--check` mode above plus
+`scripts/ci/check-calibration-docs.ts`, which parses the numbers written in
+**this document** (and the README's stated α) and fails the build if any of
+them stops matching the re-derived values. Locally: `npm run check:claims`.
+
 ## References
 
 - Yadkori, Y. A., et al. *Mitigating LLM Hallucinations via Conformal

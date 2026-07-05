@@ -55,5 +55,5 @@ Adversarial weighting: each dimension gets one stress-test case alongside two ro
 ## How to read this doc
 
 - **Case-count claims live here.** Other documents in this repo should reference this file rather than restate numbers. If a downstream doc claims "N=12 preregistered cases," it should be linking back to this file's v4 target rather than making a standalone claim.
-- **The numbers reflect on-disk reality.** When a case file is added or removed under `cases/`, the current-state grid in this doc updates in the same change. The two should never diverge.
+- **The numbers reflect on-disk reality.** When a case file is added or removed under `cases/`, the current-state grid in this doc updates in the same change. The two should never diverge — CI counts the files under `cases/` on every push and fails if this grid disagrees (`npm run check:coverage`, the `coverage-consistency` job in `.github/workflows/ci.yml`).
 - **Aspirational counts are clearly labeled.** N=50 and N=275 are roadmap targets, not current state. They are useful for setting up the trajectory but should not be cited as if they exist on disk today.
