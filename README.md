@@ -2,15 +2,25 @@
 
 [![CI](https://github.com/theo-ai-lab/ai-career-coach/actions/workflows/ci.yml/badge.svg)](https://github.com/theo-ai-lab/ai-career-coach/actions/workflows/ci.yml)
 
-**Prototype — AI career coaching with multi-agent orchestration, resume-grounded RAG, and a 4-dimension LLM-as-judge eval rubric. A Vercel frontend is live, but the early-2026 pilot's backend is no longer accessible. The early-2026 pilot analytics are no longer accessible, so the adversarial eval (not usage metrics) is the evidence here.**
+**Prototype — AI career coaching with multi-agent orchestration, resume-grounded RAG, and a 4-dimension LLM-as-judge eval rubric. Every headline claim below is past tense and on disk: it links to its committed artifact and to the CI gate that re-derives it on every push.**
+
+## Evidence
+
+| Claim | Committed artifact | CI gate that re-derives it |
+|-------|--------------------|----------------------------|
+| **Red-team run (May 2026)** — 25 adversarial prompts against production; 6 failed / 9 material / 5 minor / 5 none | [`red-team-raw-results.json`](data/eval-benchmark/red-team-raw-results.json) · [observations](data/eval-benchmark/red-team-observations.md) | [claims-drift](.github/workflows/ci.yml) — τ and the cascade slice below are re-derived from this raw file on every push (`npm run check:claims`) |
+| **OOD abstention threshold τ** — split-conformal calibrated to a fixed abstain budget, not hand-set | [`ood-calibration.json`](lib/quality-gates/ood-calibration.json) · [calibration doc](docs/OOD_GATE_CALIBRATION.md) | [claims-drift](.github/workflows/ci.yml) — `calibrate-ood-gate.ts --check` re-derives the artifact; `check-calibration-docs.ts` re-parses every documented number |
+| **Measured cascade slice** — how much the deterministic OOD fast path resolves before any LLM call | [`cascade-replay.json`](lib/quality-gates/cascade-replay.json) · [the measured sentence](#quality-gates-live-request-path) | [claims-drift](.github/workflows/ci.yml) — `check-readme-sentence.ts` byte-compares that sentence against `buildMeasuredSentence()` |
+| **Benchmark cases on disk: 6** (5 normal / 1 adversarial / 0 edge; v3 scaffold) | [`cases/`](data/eval-benchmark/cases) · [COVERAGE.md](data/eval-benchmark/COVERAGE.md) | [coverage-consistency](.github/workflows/ci.yml) — `check-coverage-counts.mjs` counts the files and checks the COVERAGE.md grid (`npm run check:coverage`) |
+| **Keyless demo** — abstention and human-review routing with zero keys, zero model calls | [`/demo`](app/demo/page.tsx) · [`lib/demo/`](lib/demo) artifacts (labeled synthetic) | [claims-drift](.github/workflows/ci.yml) — `build-demo-artifacts.ts --check` re-derives the demo corpus and demo τ (`npm run check:demo`) |
+
+An early-2026 pilot (~57 users / 900+ queries) predates this repo's evidence discipline: its analytics lived in a PostHog/Supabase account that is no longer accessible, are unrecoverable, and are claimed nowhere below.
 
 **Try the gates without keys:** the `/demo` route runs the system's core behavior — abstaining on out-of-distribution questions instead of hallucinating, and routing high-stakes ones to human review — with no API key and no backend. Everything model-shaped there is committed, labeled data (fictional persona, deterministic demo embeddings, canned answers); the gate decisions are made by the production gate modules at request time. See [Keyless demo](#keyless-demo-demo).
 
 Built as a solo project to solve a real problem: career advice is either generic (ChatGPT) or expensive (human coaches). This platform delivers personalized, grounded career guidance using specialized AI agents that collaborate through a shared memory system.
 
-**A preregistered, falsifiable 4-dimension LLM-as-judge eval framework — N=6 cases on disk today (v3 scaffold), N=12 cross-vendor adversarial target (v4)** — see [COVERAGE.md](data/eval-benchmark/COVERAGE.md) for the canonical case inventory and [EVAL_DESIGN.md](docs/EVAL_DESIGN.md) for the rubric. *(An early-2026 pilot ran with ~57 users / 900+ queries; those analytics lived in an account that is no longer accessible and can't be re-verified from this repo — see the note below. The committed adversarial eval, not usage metrics, is the evidence here.)*
-
-
+**A preregistered, falsifiable 4-dimension LLM-as-judge eval framework — N=6 cases on disk today (v3 scaffold), N=12 cross-vendor adversarial target (v4)** — see [COVERAGE.md](data/eval-benchmark/COVERAGE.md) for the canonical case inventory and [EVAL_DESIGN.md](docs/EVAL_DESIGN.md) for the rubric.
 
 [LinkedIn](https://linkedin.com/in/theobermudez) · [PRD](docs/PRD.md) · [Metrics](docs/METRICS_FRAMEWORK.md) · [Roadmap](docs/ROADMAP.md) · [Architecture](docs/ARCHITECTURE.md) · [Decision Log](docs/DECISION_LOG.md) · [Eval Framework](docs/EVAL_DESIGN.md)
 
@@ -30,7 +40,7 @@ Built as a solo project to solve a real problem: career advice is either generic
 
 Built solo from November 2025 onward. Three architectural milestones live in the public commit log: working RAG with grounded retrieval (Nov 2025), LLM-as-judge evaluation and three-layer memory system (Dec 2025), and multi-agent LangGraph orchestration with HITL detection (Dec 2025). Full architecture decisions in [docs/DECISION_LOG.md](docs/DECISION_LOG.md), evaluation methodology in [docs/EVAL_DESIGN.md](docs/EVAL_DESIGN.md).
 
-This is a prototype: a Vercel frontend is live, but the early-2026 pilot's backend is no longer accessible. An early-2026 pilot ran with real users, but its analytics (query volume, eval scores) lived in a PostHog/Supabase account that is no longer accessible — so those usage numbers can't be re-verified from this repo, and the committed adversarial eval is the evidence here. There is no auth, rate limiting, or end-to-end outcome tracking yet — those are planned, not built.
+This is a prototype: a Vercel frontend is live, but the early-2026 pilot's backend is no longer accessible (the pilot itself is covered by the one-line note under [Evidence](#evidence)). There is no auth, rate limiting, or end-to-end outcome tracking yet — those are planned, not built.
 
 Known failure modes surfaced by the red-team (May 2026) — including a cross-conversation memory leak in `/api/query` traced to `userId = resumeId` aliasing — are documented in [`data/eval-benchmark/red-team-observations.md`](data/eval-benchmark/red-team-observations.md) and partially mitigated. The fix shipped behind a `skipMemory: true` request-body flag (see `app/api/query/route.ts` and the comment block at lines 28-33) so eval runs get clean stateless responses without changing default behavior for real users.
 
