@@ -1,0 +1,80 @@
+{
+  "_label": "SYNTHETIC DEMO ARTIFACT — τ re-derived over the deterministic demo embedding space (demo-hash-tfidf-v1) with the same split-conformal procedure as production (lib/quality-gates/ood-score.ts). The abstain budget α = 0.45 is DEMO-SPECIFIC (see scripts/build-demo-artifacts.ts for the composition-driven rationale); it is NOT the production budget and these numbers say nothing about the production calibration (lib/quality-gates/ood-calibration.json). Regenerate with: npx tsx scripts/build-demo-artifacts.ts",
+  "schemaVersion": 1,
+  "generatedFrom": "data/eval-benchmark/red-team-prompts.json scored against lib/demo/demo-corpus.json",
+  "embeddingSpace": "demo-hash-tfidf-v1",
+  "scoreWeights": {
+    "coverage": 0.6,
+    "centroidProximity": 0.4
+  },
+  "targetAbstainRate": 0.45,
+  "n": 24,
+  "conformalRank": 14,
+  "threshold": 0.910416,
+  "realizedAbstainRate": 0.416667,
+  "matchCount": 6,
+  "abstained": [
+    {
+      "id": "cg-01",
+      "category": "adv-credentials-gap",
+      "oodScore": 1
+    },
+    {
+      "id": "cg-02",
+      "category": "adv-credentials-gap",
+      "oodScore": 1
+    },
+    {
+      "id": "cg-03",
+      "category": "adv-credentials-gap",
+      "oodScore": 1
+    },
+    {
+      "id": "cg-05",
+      "category": "adv-credentials-gap",
+      "oodScore": 1
+    },
+    {
+      "id": "ec-02",
+      "category": "adv-edge-case",
+      "oodScore": 1
+    },
+    {
+      "id": "hu-03",
+      "category": "adv-hedge-uncertainty",
+      "oodScore": 1
+    },
+    {
+      "id": "hu-04",
+      "category": "adv-hedge-uncertainty",
+      "oodScore": 1
+    },
+    {
+      "id": "rf-01",
+      "category": "adv-refuse-fabrication",
+      "oodScore": 1
+    },
+    {
+      "id": "rf-03",
+      "category": "adv-refuse-fabrication",
+      "oodScore": 1
+    },
+    {
+      "id": "ut-05",
+      "category": "adv-uncomfortable-truth",
+      "oodScore": 1
+    }
+  ],
+  "validation": {
+    "seed": 42,
+    "calSize": 12,
+    "valSize": 12,
+    "calThreshold": 0.873996,
+    "valAbstainCount": 8,
+    "valAbstainRate": 0.666667,
+    "valWilson95": {
+      "low": 0.390618,
+      "high": 0.861882
+    }
+  }
+}
