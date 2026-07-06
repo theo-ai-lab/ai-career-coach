@@ -5,12 +5,14 @@
 #                        no API keys, no network.
 #   claims-drift         re-runs the tau calibration and the measured-sentence
 #                        generator against the committed red-team replay and
-#                        fails if the docs' numbers no longer match.
+#                        fails if the docs' numbers no longer match; also
+#                        re-derives the keyless-demo artifacts (corpus + demo
+#                        tau) and fails if the committed ones drift.
 #   coverage-consistency counts eval case files on disk and fails if the
 #                        COVERAGE.md grid disagrees.
 #
 # Every step is runnable locally: npm test, npm run check:claims,
-# npm run check:coverage.
+# npm run check:coverage, npm run check:demo.
 
 name: CI
 
@@ -59,6 +61,8 @@ jobs:
         run: npx tsx scripts/ci/check-calibration-docs.ts
       - name: README measured sentence byte-matches buildMeasuredSentence()
         run: npx tsx scripts/ci/check-readme-sentence.ts
+      - name: Committed demo artifacts match the re-derivation
+        run: npx tsx scripts/build-demo-artifacts.ts --check
 
   coverage-consistency:
     name: coverage-consistency

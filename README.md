@@ -4,6 +4,8 @@
 
 **Prototype — AI career coaching with multi-agent orchestration, resume-grounded RAG, and a 4-dimension LLM-as-judge eval rubric. A Vercel frontend is live, but the early-2026 pilot's backend is no longer accessible. The early-2026 pilot analytics are no longer accessible, so the adversarial eval (not usage metrics) is the evidence here.**
 
+**Try the gates without keys:** the `/demo` route runs the system's core behavior — abstaining on out-of-distribution questions instead of hallucinating, and routing high-stakes ones to human review — with no API key and no backend. Everything model-shaped there is committed, labeled data (fictional persona, deterministic demo embeddings, canned answers); the gate decisions are made by the production gate modules at request time. See [Keyless demo](#keyless-demo-demo).
+
 Built as a solo project to solve a real problem: career advice is either generic (ChatGPT) or expensive (human coaches). This platform delivers personalized, grounded career guidance using specialized AI agents that collaborate through a shared memory system.
 
 **A preregistered, falsifiable 4-dimension LLM-as-judge eval framework — N=6 cases on disk today (v3 scaffold), N=12 cross-vendor adversarial target (v4)** — see [COVERAGE.md](data/eval-benchmark/COVERAGE.md) for the canonical case inventory and [EVAL_DESIGN.md](docs/EVAL_DESIGN.md) for the rubric. *(An early-2026 pilot ran with ~57 users / 900+ queries; those analytics lived in an account that is no longer accessible and can't be re-verified from this repo — see the note below. The committed adversarial eval, not usage metrics, is the evidence here.)*
@@ -97,6 +99,17 @@ Known failure modes surfaced by the red-team (May 2026) — including a cross-co
 
 > Thresholds (`sparseSimilarity`, `denseSimilarity`, info-gain weights, satisficing targets) are documented, **unvalidated defaults** — they prove the wiring, not a tuned operating point, and must be calibrated against real traces before being trusted as release gates. The OOD threshold is the exception: it is **calibrated** (split-conformal), with a held-out split scored once and a regenerate/verify script. The gates' decision logic is pure and unit-tested offline (`npm run test:quality-gates`).
 
+### Keyless demo (`/demo`)
+
+The gates above are pure TypeScript over cosine similarities, so they can be *experienced* without any backend. The `/demo` route serves the abstention-instead-of-hallucination behavior with **zero keys, zero env vars, zero model calls** — every piece that would normally need a model is committed, labeled data:
+
+- **Demo corpus** — the fictional persona already committed at [`data/eval-benchmark/personas/synthetic-redteam-resume.md`](data/eval-benchmark/personas/synthetic-redteam-resume.md), chunked and embedded into `lib/demo/demo-corpus.json`.
+- **Deterministic demo embeddings** — a seeded hashed tf-idf space (`lib/demo/embeddings.ts`), **not model embeddings**: texts sharing distinctive vocabulary with the corpus cluster, fully-off-corpus queries land at cosine 0. It has no semantic understanding, and its numbers say nothing about the production embedding space.
+- **A real conformal calibration over that space** — the demo threshold τ is re-derived by the **same split-conformal procedure** as production (`scripts/build-demo-artifacts.ts`), including the fixed-seed held-out check, using the committed red-team prompts as the calibration sample. The demo abstain budget (α = 0.45) is demo-specific — the script header documents why the closed-vocabulary space forces it — and is *not* the production budget. CI re-derives both demo artifacts on every push (`npm run check:demo`), and an anti-drift test (`lib/demo/demo-artifacts.test.ts`) reproduces the derivation independently.
+- **Canned generation, labeled in the UI** — three scripted queries have authored answers grounded strictly in the fictional persona; free-typed questions get verbatim résumé excerpts instead of a pretend generation. The page header and every answer carry the provenance label (*demo corpus · deterministic demo embeddings · canned generation*), so any screenshot or recording is self-describing. Judge scores, satisficing, and the grounding gate are honestly `null` — those tiers need models, and demo mode does not fake them.
+
+Only the embedding space and the answer text are synthetic: the OOD abstention, density assessment, and human-review routing are decided by the production gate modules at request time. The scripted queries are locked to their gate outcomes by tests (`lib/demo/run-demo-query.test.ts`): a grounded question that answers, a salary-negotiation question that routes to human review, and an off-résumé question the OOD gate abstains on before any answer exists.
+
 ### Multi-Agent Orchestration
 The agent layer runs as a LangGraph `StateGraph` (see `lib/report-graph.ts`):
 
@@ -161,11 +174,13 @@ Three-layer architecture with different retention and retrieval patterns:
 ```
 app/
 ├── page.tsx                              # main UI: chat + resume upload + full report (calls /api/query, /api/upload, /api/agents/report)
+├── demo/page.tsx                         # keyless demo UI (no env vars; committed, labeled demo data)
 ├── layout.tsx                            # root layout
 ├── providers.tsx                         # PostHog provider
 └── api/
     ├── upload/route.ts                   # PDF → chunk → embed → store
     ├── query/route.ts                    # RAG retrieval → grounded generation (memory-aware)
+    ├── demo/query/route.ts               # keyless demo answer path (real gate decisions, canned answers)
     ├── agents/
     │   ├── resume/route.ts               # resume analyzer
     │   ├── gap/route.ts                  # gap finder
@@ -178,6 +193,7 @@ app/
         └── coaching-quality/route.ts     # standalone LLM-as-judge endpoint
 
 components/
+├── chat-message.tsx                      # shared chat renderer (live coach + demo): answer + gate banners
 └── ui/                                   # shadcn primitives (button, card, input, scroll-area)
 
 lib/
@@ -198,6 +214,12 @@ lib/
 │   ├── satisficing.ts                    # satisficing stop for the critique→revise loop
 │   ├── retrieval-pipeline.ts             # composes the gates into one retrieval decision
 │   └── vector-math.ts                    # pure cosine/kNN helpers (+ *.test.ts for each)
+├── demo/                                 # keyless /demo backing (SYNTHETIC demo space — labeled as such)
+│   ├── embeddings.ts                     # deterministic hashed tf-idf demo embedder (not model embeddings)
+│   ├── demo-corpus.json                  # fictional-persona chunks + demo vectors (committed artifact)
+│   ├── demo-calibration.json             # demo τ, re-derived by the same conformal procedure as production
+│   ├── scripted-queries.ts               # the three scripted demo queries + canned answers
+│   └── run-demo-query.ts                 # keyless demo pipeline (real gate decisions; + *.test.ts for each)
 ├── agents/
 │   ├── resume-analyzer/                  # node.ts + schema.ts
 │   ├── gap-finder/                       # node.ts + schema.ts
@@ -242,7 +264,9 @@ NEXT_PUBLIC_POSTHOG_HOST=https://us.i.posthog.com
 npm run dev
 ```
 
-Requires Supabase project with pgvector extension enabled. SQL setup files at repo root, run in alphabetical order: `01-supabase-documents.sql` (documents table + pgvector extension + HNSW index), `02-supabase-match-documents.sql` (RPC functions for vector search), `03-supabase-memory.sql` (user profiles + session memory), `04-supabase-evals.sql` (eval logging), `05-supabase-fix.sql` (RLS policies).
+**No keys?** The keyless demo needs none of the above: `npm run dev` (with no `.env.local` at all) and open [http://localhost:3000/demo](http://localhost:3000/demo). The keyless test suite (`npm test`) and every CI drift gate (`npm run check:claims`, `check:coverage`, `check:demo`) also run without env vars.
+
+The live coaching path requires a Supabase project with pgvector extension enabled. SQL setup files at repo root, run in alphabetical order: `01-supabase-documents.sql` (documents table + pgvector extension + HNSW index), `02-supabase-match-documents.sql` (RPC functions for vector search), `03-supabase-memory.sql` (user profiles + session memory), `04-supabase-evals.sql` (eval logging), `05-supabase-fix.sql` (RLS policies).
 
 ---
 
