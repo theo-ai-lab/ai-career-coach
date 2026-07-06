@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -233,12 +234,12 @@ export default function Home() {
               unconfigured deployment still experiences the quality gates. */}
           <p className="mt-1 text-xs text-slate-500">
             No backend configured?{" "}
-            <a
+            <Link
               href="/demo"
               className="underline underline-offset-2 hover:text-slate-700"
             >
               Try the keyless demo
-            </a>{" "}
+            </Link>{" "}
             — same gates, committed demo data, no API key.
           </p>
         </div>
