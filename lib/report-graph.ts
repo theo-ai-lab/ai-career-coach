@@ -90,7 +90,7 @@ interface StrategyPlanResult {
  *
  * Migrated 2026-05-12 from the older `new StateGraph({ channels: {...} })`
  * pattern to LangGraph 1.0's `Annotation.Root`. This lets us drop the
- * `: any` cast on the graph builder (audit L2-054). Each Annotation<T>()
+ * `: any` cast on the graph builder. Each Annotation<T>()
  * is a last-value channel holding `T | undefined`; nodes set them via
  * Partial<State> returns.
  */
