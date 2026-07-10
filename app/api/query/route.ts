@@ -16,10 +16,8 @@ import {
   getServiceConfig,
   SERVICE_UNAVAILABLE_PAYLOAD,
 } from "@/lib/service-config";
-import {
-  createLivenessChecker,
-  BACKEND_UNAVAILABLE_PAYLOAD,
-} from "@/lib/backend-liveness";
+import { BACKEND_UNAVAILABLE_PAYLOAD } from "@/lib/backend-liveness";
+import { getBackendLiveness } from "@/lib/backend-liveness-server";
 import {
   runRetrievalPipeline,
   expandQueryWithProfile,
@@ -58,26 +56,11 @@ import { runGroundingGate, type GroundingResult } from "@/lib/grounding";
 const gateCounter = new GateCounter();
 
 /**
- * Backend-liveness gate (honesty gate, part two). getServiceConfig() only
- * proves the env vars are PRESENT; a deployment whose vars point at a dead or
- * paused Supabase project passes that check and then fails inside retrieval.
- * This cached probe (cheap HEAD select against the documents table, shared
- * across requests for its TTL) catches that state up front so the route can
- * return its designed 503 instead of a failure dressed up as an answer — and
- * it runs BEFORE any OpenAI call, so a dead backend also spends nothing.
- * Like gateCounter, per-instance and in-memory.
+ * Backend-liveness gate (honesty gate, part two): the process-wide cached
+ * probe shared by every Supabase-touching route — see
+ * lib/backend-liveness-server.ts for the full rationale.
  */
-const backendLiveness = createLivenessChecker({
-  probe: async () => {
-    const { error } = await getSupabase()
-      .from("documents")
-      .select("id", { head: true })
-      .limit(1);
-    // A PostgREST-level error (missing table/schema) also means the backend
-    // is not serving the product — treat it as dead, not just fetch failures.
-    if (error) throw new Error(error.message);
-  },
-});
+const backendLiveness = getBackendLiveness();
 
 /**
  * Build the revision prompt for a satisficing iteration > 1. Carries the
