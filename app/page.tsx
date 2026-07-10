@@ -313,8 +313,19 @@ export default function Home() {
                     body: formData,
                   });
                   if (!res.ok) {
+                    // Error responses are JSON with a designed, human-readable
+                    // message (503 service_unavailable payloads, 400 field
+                    // problems) — surface that, never raw JSON.
                     const text = await res.text();
-                    toast.error("Upload failed", { description: text });
+                    let description = text;
+                    try {
+                      const body = JSON.parse(text);
+                      description =
+                        body.message || body.error || "Unknown error";
+                    } catch {
+                      // Non-JSON body (unexpected): show it as-is.
+                    }
+                    toast.error("Upload failed", { description });
                     return;
                   }
                   const data = await res.json();
