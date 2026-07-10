@@ -14,12 +14,13 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { FlaskConical, Loader2 } from "lucide-react";
+import { FlaskConical } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card } from "@/components/ui/card";
+import { TypingIndicator } from "@/components/typing-indicator";
 import {
   ChatMessage,
   type Message,
@@ -33,6 +34,7 @@ import {
 
 interface DemoApiResponse {
   answer?: string;
+  message?: string;
   signals?: QuerySignals | null;
   demo?: {
     label: string;
@@ -72,11 +74,14 @@ export default function DemoPage() {
       }
 
       if (!res.ok) {
+        // Rate limits (429) carry a designed `message`; older error bodies
+        // carry `answer`. Either way it renders on the notice surface.
         setMessages((prev) => [
           ...prev,
           {
             role: "assistant",
             content:
+              data.message ||
               data.answer ||
               "Something went wrong processing that. Please try again.",
             notice: true,
@@ -111,41 +116,43 @@ export default function DemoPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 flex flex-col items-center justify-center gap-4 p-4">
-      <Card className="w-full max-w-2xl min-h-[60vh] max-h-[85vh] flex flex-col bg-white/95 shadow-2xl">
-        <div className="p-6 border-b">
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold text-slate-800">
+    <div className="page-canvas flex min-h-screen flex-col items-center justify-center gap-4 p-4 sm:p-6">
+      <Card className="flex max-h-[85vh] min-h-[60vh] w-full max-w-2xl flex-col shadow-lg">
+        <div className="border-b p-6">
+          <div className="flex items-center gap-2.5">
+            <h1 className="font-serif text-xl font-medium tracking-tight text-foreground-strong">
               AI Career Coach
             </h1>
-            <span className="text-xs font-medium uppercase tracking-wide text-sky-800 bg-sky-50 border border-sky-200 rounded px-2 py-0.5">
+            <span className="rounded-full bg-accent px-2.5 py-0.5 text-xs font-semibold tracking-wider text-accent-foreground uppercase">
               Keyless demo
             </span>
           </div>
 
           {/* Persistent honesty label: what is synthetic on this page. */}
           <p
-            className="mt-1 text-xs font-medium text-slate-500"
+            className="mt-1.5 text-xs font-medium text-muted-foreground"
             data-testid="demo-mode-label"
           >
             {DEMO_MODE_LABEL}
           </p>
 
-          <p className="mt-2 text-sm text-slate-600">
+          <p className="mt-2 text-sm text-muted-foreground">
             You are chatting over the résumé of{" "}
-            <span className="font-medium">{DEMO_PERSONA_NAME}</span>, a
-            fictional persona. The gates are the same TypeScript the live path
-            runs — conformal OOD abstention and human-review routing — over a
-            deterministic demo embedding space. Answers are canned or verbatim
-            excerpts (no model call), so what you are evaluating here is the
-            gating, not generative quality.
+            <span className="font-serif italic text-foreground">
+              {DEMO_PERSONA_NAME}
+            </span>
+            , a fictional persona. The gates are the same TypeScript the live
+            path runs — conformal OOD abstention and human-review routing —
+            over a deterministic demo embedding space. Answers are canned or
+            verbatim excerpts (no model call), so what you are evaluating here
+            is the gating, not generative quality.
           </p>
 
-          <p className="mt-1 text-xs text-slate-500">
+          <p className="mt-1.5 text-xs text-muted-foreground">
             Have keys configured?{" "}
             <Link
               href="/"
-              className="underline underline-offset-2 hover:text-slate-700"
+              className="font-medium text-accent-foreground underline underline-offset-2 hover:text-primary-hover"
             >
               Use the live coach
             </Link>
@@ -155,7 +162,7 @@ export default function DemoPage() {
 
         {/* One-click scripted queries, each locked by tests to a documented
             gate outcome (lib/demo/run-demo-query.test.ts). */}
-        <div className="px-6 py-3 border-b flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 border-b px-6 py-3">
           {SCRIPTED_DEMO_QUERIES.map((s) => (
             <button
               key={s.id}
@@ -163,7 +170,7 @@ export default function DemoPage() {
               onClick={() => sendQuery(s.query)}
               disabled={loading}
               title={s.demonstrates}
-              className="text-xs px-3 py-1.5 rounded-full border border-slate-300 text-slate-700 hover:bg-slate-100 disabled:opacity-50 transition-colors"
+              className="rounded-full bg-secondary px-3.5 py-1.5 text-xs font-medium text-secondary-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none disabled:opacity-50"
             >
               {s.label}
             </button>
@@ -177,18 +184,17 @@ export default function DemoPage() {
           aria-label="Demo conversation"
         >
           {messages.length === 0 && (
-            <div className="text-center text-slate-500 mt-16">
-              <FlaskConical
-                className="h-6 w-6 mx-auto mb-3 text-slate-400"
-                aria-hidden
-              />
-              <p className="text-lg">
+            <div className="mt-12 flex flex-col items-center text-center">
+              <div className="flex h-10 w-10 items-center justify-center rounded-md bg-accent text-accent-foreground">
+                <FlaskConical className="h-5 w-5" aria-hidden />
+              </div>
+              <p className="mt-4 font-serif text-lg font-medium text-foreground-strong">
                 Pick a scripted question above, or ask anything.
               </p>
-              <p className="mt-2 text-sm">
-                On-résumé questions get a grounded answer. Off-résumé
-                questions hit the calibrated abstention gate instead of a
-                made-up answer — that&apos;s the point.
+              <p className="mt-2 max-w-md text-sm text-muted-foreground">
+                On-résumé questions get a grounded answer. Off-résumé questions
+                hit the calibrated abstention gate instead of a made-up answer
+                — that&apos;s the point.
               </p>
             </div>
           )}
@@ -197,15 +203,11 @@ export default function DemoPage() {
             <ChatMessage key={i} message={m} />
           ))}
 
-          {loading && (
-            <p className="text-slate-500 italic" aria-live="polite">
-              Running the gates...
-            </p>
-          )}
+          {loading && <TypingIndicator label="Running the gates" />}
           <div ref={messagesEndRef} />
         </ScrollArea>
 
-        <div className="p-4 border-t flex gap-2">
+        <div className="flex gap-2 border-t p-4">
           <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -216,16 +218,12 @@ export default function DemoPage() {
             disabled={loading}
           />
           <Button onClick={() => sendQuery(input)} disabled={loading}>
-            {loading ? (
-              <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-            ) : (
-              "Send"
-            )}
+            Send
           </Button>
         </div>
       </Card>
 
-      <p className="text-xs text-slate-400 max-w-2xl text-center">
+      <p className="max-w-2xl text-center text-xs text-muted-foreground">
         Demo honesty: the persona is fictional, the embedding space is a
         deterministic hashed-lexical construction (not a learned model), and
         answers are canned or verbatim excerpts — but the abstention threshold

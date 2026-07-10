@@ -10,18 +10,17 @@ import {
   FileText,
   Loader2,
   RefreshCw,
+  Sparkles,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-
 import { Input } from "@/components/ui/input";
-
 import { ScrollArea } from "@/components/ui/scroll-area";
-
 import { Card } from "@/components/ui/card";
-
+import { Notice } from "@/components/notice";
+import { TypingIndicator } from "@/components/typing-indicator";
 import {
   ChatMessage,
   type Message,
@@ -53,6 +52,11 @@ export default function Home() {
   );
 
   const [resumeFileName, setResumeFileName] = useState<string | null>(null);
+
+  // Upload failures render as a persistent designed notice under the
+  // upload control (not a transient toast): a 503/400 explains itself
+  // for as long as the visitor needs to read it.
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   // Full-report (LangGraph orchestrator) state.
   const [reportLoading, setReportLoading] = useState(false);
@@ -114,8 +118,9 @@ export default function Home() {
       }
 
       if (!res.ok) {
-        // Honest failure surface: configuration (503) and other errors show a
-        // clear notice instead of a fabricated answer.
+        // Honest failure surface: configuration (503), rate limits (429),
+        // and other errors render as a designed notice instead of a
+        // fabricated answer (ChatMessage routes notices through Notice).
         const noticeText =
           data.message ||
           data.answer ||
@@ -219,24 +224,26 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 flex flex-col items-center justify-center gap-4 p-4">
-      <Card className="w-full max-w-2xl min-h-[60vh] max-h-[85vh] flex flex-col bg-white/95 shadow-2xl">
-        <div className="p-6 border-b">
-          <h1 className="text-2xl font-bold text-slate-800">AI Career Coach</h1>
+    <div className="page-canvas flex min-h-screen flex-col items-center justify-center gap-4 p-4 sm:p-6">
+      <Card className="flex max-h-[85vh] min-h-[60vh] w-full max-w-2xl flex-col shadow-lg">
+        <div className="border-b p-6">
+          <h1 className="font-serif text-xl font-medium tracking-tight text-foreground-strong">
+            AI Career Coach
+          </h1>
 
-          <p className="text-sm text-slate-600">
-            Upload a resume → ask anything about it → answers stay grounded in
-            the uploaded text.
+          <p className="mt-1.5 text-sm text-muted-foreground">
+            Upload a résumé, then ask anything about it — answers stay grounded
+            in the uploaded text.
           </p>
 
           {/* The live path needs an OpenAI key + Supabase; the demo does not.
               Keep the keyless entry point one click away so a visitor on an
               unconfigured deployment still experiences the quality gates. */}
-          <p className="mt-1 text-xs text-slate-500">
+          <p className="mt-1.5 text-xs text-muted-foreground">
             No backend configured?{" "}
             <Link
               href="/demo"
-              className="underline underline-offset-2 hover:text-slate-700"
+              className="font-medium text-accent-foreground underline underline-offset-2 hover:text-primary-hover"
             >
               Try the keyless demo
             </Link>{" "}
@@ -251,21 +258,25 @@ export default function Home() {
           aria-label="Conversation"
         >
           {messages.length === 0 && (
-            <div className="text-center text-slate-500 mt-20">
-              <p className="text-lg">Try asking:</p>
-
-              <p className="mt-2 italic">
-                &ldquo;Summarize my educational background.&rdquo;
+            <div className="mt-14 flex flex-col items-center text-center">
+              <div className="flex h-10 w-10 items-center justify-center rounded-md bg-accent text-accent-foreground">
+                <Sparkles className="h-5 w-5" aria-hidden />
+              </div>
+              <p className="mt-4 font-serif text-lg font-medium text-foreground-strong">
+                Ask about the résumé you upload.
               </p>
-
-              <p className="italic">
-                &ldquo;Which of my past roles is closest to data
-                engineering?&rdquo;
-              </p>
-
-              <p className="italic">
-                &ldquo;Walk me through the projects on my resume.&rdquo;
-              </p>
+              <ul className="mt-3 space-y-1.5 text-sm text-muted-foreground">
+                <li className="font-serif italic">
+                  &ldquo;Summarize my educational background.&rdquo;
+                </li>
+                <li className="font-serif italic">
+                  &ldquo;Which of my past roles is closest to data
+                  engineering?&rdquo;
+                </li>
+                <li className="font-serif italic">
+                  &ldquo;Walk me through the projects on my resume.&rdquo;
+                </li>
+              </ul>
             </div>
           )}
 
@@ -273,24 +284,20 @@ export default function Home() {
             <ChatMessage key={i} message={m} />
           ))}
 
-          {loading && (
-            <p className="text-slate-500 italic" aria-live="polite">
-              Thinking...
-            </p>
-          )}
+          {loading && <TypingIndicator label="Thinking" />}
           <div ref={messagesEndRef} />
         </ScrollArea>
 
-        <div className="p-4 border-t">
+        <div className="border-t p-4">
           <label
             htmlFor="resume-upload"
-            className="group flex items-center justify-between gap-3 px-4 py-3 rounded-md border border-slate-200 hover:border-slate-300 hover:bg-slate-50 cursor-pointer transition-colors focus-within:outline-none focus-within:ring-2 focus-within:ring-blue-500/40 focus-within:ring-offset-1"
+            className="group flex cursor-pointer items-center justify-between gap-3 rounded-md border border-border px-4 py-3 transition-colors focus-within:ring-2 focus-within:ring-ring/40 focus-within:ring-offset-1 hover:border-input hover:bg-secondary"
           >
-            <span className="text-sm text-slate-700 truncate">
+            <span className="truncate text-sm text-foreground">
               {resumeFileName ?? "Upload resume PDF"}
             </span>
             {resumeFileName && (
-              <span className="text-xs text-slate-400 group-hover:text-slate-600 transition-colors shrink-0">
+              <span className="shrink-0 text-xs text-muted-foreground transition-colors group-hover:text-accent-foreground">
                 Replace
               </span>
             )}
@@ -302,6 +309,8 @@ export default function Home() {
               onChange={async (e) => {
                 const file = e.target.files?.[0];
                 if (!file) return;
+
+                setUploadError(null);
 
                 const formData = new FormData();
                 formData.append("file", file);
@@ -315,7 +324,8 @@ export default function Home() {
                   if (!res.ok) {
                     // Error responses are JSON with a designed, human-readable
                     // message (503 service_unavailable payloads, 400 field
-                    // problems) — surface that, never raw JSON.
+                    // problems) — surface that on the notice surface, never
+                    // raw JSON.
                     const text = await res.text();
                     let description = text;
                     try {
@@ -325,7 +335,7 @@ export default function Home() {
                     } catch {
                       // Non-JSON body (unexpected): show it as-is.
                     }
-                    toast.error("Upload failed", { description });
+                    setUploadError(description);
                     return;
                   }
                   const data = await res.json();
@@ -339,22 +349,31 @@ export default function Home() {
                       description: `${data.chunks} chunks ingested.`,
                     });
                   } else {
-                    toast.error("Upload error", {
-                      description: data.error || "Unknown error",
-                    });
+                    setUploadError(data.error || "Unknown error");
                   }
                 } catch (err: unknown) {
-                  toast.error("Upload failed", {
-                    description:
-                      err instanceof Error ? err.message : "Unknown error",
-                  });
+                  setUploadError(
+                    err instanceof Error ? err.message : "Unknown error",
+                  );
                 }
               }}
             />
           </label>
+
+          {uploadError && (
+            <Notice
+              tone="caution"
+              icon={AlertTriangle}
+              role="alert"
+              title="Upload failed."
+              className="mt-3"
+            >
+              <p className="mt-0.5">{uploadError}</p>
+            </Notice>
+          )}
         </div>
 
-        <div className="p-4 border-t flex flex-col gap-2">
+        <div className="flex flex-col gap-2 border-t p-4">
           <div className="flex gap-2">
             <Input
               value={input}
@@ -396,6 +415,7 @@ export default function Home() {
                 localStorage.removeItem("currentResumeId");
                 setCurrentResumeId(null);
                 setResumeFileName(null);
+                setUploadError(null);
                 setReportMarkdown(null);
                 setReportError(null);
                 toast("Resume cleared", {
@@ -412,13 +432,13 @@ export default function Home() {
       {/* Full-report panel: the 8-node LangGraph orchestrator (/api/agents/report),
           surfaced with explicit loading / error / result states. */}
       {(reportLoading || reportError || reportMarkdown) && (
-        <Card className="w-full max-w-2xl max-h-[85vh] flex flex-col bg-white/95 shadow-2xl">
-          <div className="p-4 border-b flex items-center justify-between gap-3">
+        <Card className="flex max-h-[85vh] w-full max-w-2xl flex-col shadow-lg">
+          <div className="flex items-center justify-between gap-3 border-b p-4">
             <div>
-              <h2 className="text-lg font-bold text-slate-800">
+              <h2 className="font-serif text-md font-medium tracking-tight text-foreground-strong">
                 Full career report
               </h2>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-muted-foreground">
                 Multi-step agent: resume analysis, gap analysis, cover letter,
                 interview prep, and a 6-month plan.
               </p>
@@ -431,7 +451,7 @@ export default function Home() {
                   setReportError(null);
                 }}
                 aria-label="Dismiss report"
-                className="text-slate-400 hover:text-slate-700 transition-colors shrink-0"
+                className="shrink-0 rounded-full p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
               >
                 <X className="h-5 w-5" aria-hidden />
               </button>
@@ -440,7 +460,7 @@ export default function Home() {
 
           {reportLoading && (
             <div
-              className="flex items-center gap-2 p-6 text-slate-600"
+              className="flex items-center gap-2.5 p-6 text-sm text-muted-foreground"
               role="status"
               aria-live="polite"
             >
@@ -453,36 +473,36 @@ export default function Home() {
           )}
 
           {!reportLoading && reportError && (
-            <div
-              className="m-4 text-sm text-amber-900 bg-amber-50 border border-amber-200 rounded-md px-3 py-3 flex items-start gap-2"
+            <Notice
+              tone="caution"
+              icon={AlertTriangle}
               role="alert"
+              title="Couldn't generate the report."
+              className="m-4"
             >
-              <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" aria-hidden />
-              <div className="flex-1">
-                <p className="font-medium">Couldn&apos;t generate the report.</p>
-                <p className="mt-1 text-amber-800">{reportError}</p>
-                <Button
-                  variant="outline"
-                  className="mt-3"
-                  onClick={generateReport}
-                >
-                  <RefreshCw className="h-4 w-4" aria-hidden />
-                  Try again
-                </Button>
-              </div>
-            </div>
+              <p className="mt-0.5">{reportError}</p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-3"
+                onClick={generateReport}
+              >
+                <RefreshCw className="h-4 w-4" aria-hidden />
+                Try again
+              </Button>
+            </Notice>
           )}
 
           {!reportLoading && reportMarkdown && (
             <>
               <ScrollArea className="flex-1 p-6" aria-label="Generated report">
-                <div className="prose prose-sm prose-slate max-w-none break-words">
+                <div className="rich-text">
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>
                     {reportMarkdown}
                   </ReactMarkdown>
                 </div>
               </ScrollArea>
-              <div className="p-4 border-t">
+              <div className="border-t p-4">
                 <Button variant="outline" onClick={downloadReport}>
                   <FileText className="h-4 w-4" aria-hidden />
                   Download .md
