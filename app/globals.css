@@ -1,122 +1,361 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-@custom-variant dark (&:is(.dark *));
+/* ============================================================
+   Design foundations — warm editorial theme.
+   Sand/cream neutrals, warm near-black ink, one confident clay
+   accent, muted sage/brick feedback. Newsreader (display serif)
+   + Hanken Grotesk (body sans), both via next/font.
+   Spacing stays on Tailwind's default 4px base, which is this
+   theme's spacing rhythm. Both color schemes are defined below;
+   dark resolves via prefers-color-scheme (there is no manual
+   theme toggle, deliberately — see docs/DECISION_LOG.md).
+   ============================================================ */
 
 @theme inline {
+  /* -- Semantic colors (values in :root / dark below) -------- */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
-  --color-ring: var(--ring);
-  --color-input: var(--input);
-  --color-border: var(--border);
-  --color-destructive: var(--destructive);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-accent: var(--accent);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-muted: var(--muted);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-secondary: var(--secondary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-primary: var(--primary);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-popover: var(--popover);
-  --color-card-foreground: var(--card-foreground);
+  --color-foreground-strong: var(--foreground-strong);
   --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  /* Chat bubbles */
+  --color-bubble-user: var(--bubble-user);
+  --color-bubble-user-foreground: var(--bubble-user-foreground);
+
+  /* Notice tones (info / caution / critical / positive) — the
+     designed surface every gate banner and error state renders
+     through (components/notice.tsx). */
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-info-border: var(--info-border);
+  --color-caution: var(--caution);
+  --color-caution-foreground: var(--caution-foreground);
+  --color-caution-border: var(--caution-border);
+  --color-critical: var(--critical);
+  --color-critical-foreground: var(--critical-foreground);
+  --color-critical-border: var(--critical-border);
+  --color-positive: var(--positive);
+  --color-positive-foreground: var(--positive-foreground);
+  --color-positive-border: var(--positive-border);
+
+  /* -- Type ---------------------------------------------------
+     Display serif for headings; humanist sans for body/UI.
+     Scale: 12 / 14 / 16 / 18 / 22 / 28 / 36 / 48 / 64. */
+  --font-sans: var(--font-body), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-heading), Georgia, "Times New Roman", serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --text-xs: 0.75rem;
+  --text-xs--line-height: 1.45;
+  --text-sm: 0.875rem;
+  --text-sm--line-height: 1.5;
+  --text-base: 1rem;
+  --text-base--line-height: 1.5;
+  --text-md: 1.125rem;
+  --text-md--line-height: 1.65;
+  --text-lg: 1.375rem;
+  --text-lg--line-height: 1.3;
+  --text-xl: 1.75rem;
+  --text-xl--line-height: 1.25;
+  --text-2xl: 2.25rem;
+  --text-2xl--line-height: 1.2;
+  --text-3xl: 3rem;
+  --text-3xl--line-height: 1.2;
+  --text-4xl: 4rem;
+  --text-4xl--line-height: 1.08;
+
+  /* -- Radii — rounded, not cartoonish: 6 / 12 / 14 / 16 / 20 */
+  --radius-xs: calc(var(--radius) - 10px);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+
+  /* -- Shadows — soft and warm-tinted (brown, never pure black) */
+  --shadow-2xs: 0 1px 2px rgba(74, 52, 32, 0.05);
+  --shadow-xs: 0 1px 2px rgba(74, 52, 32, 0.06);
+  --shadow-sm: 0 1px 3px rgba(74, 52, 32, 0.07), 0 1px 2px rgba(74, 52, 32, 0.04);
+  --shadow-md: 0 6px 16px rgba(74, 52, 32, 0.08), 0 2px 5px rgba(74, 52, 32, 0.05);
+  --shadow-lg: 0 14px 36px rgba(74, 52, 32, 0.11), 0 4px 10px rgba(74, 52, 32, 0.06);
+  --shadow-xl: 0 28px 64px rgba(74, 52, 32, 0.15), 0 8px 18px rgba(74, 52, 32, 0.07);
+  --shadow-2xl: 0 28px 64px rgba(74, 52, 32, 0.15), 0 8px 18px rgba(74, 52, 32, 0.07);
+
+  /* -- Motion — alive but purposeful */
+  --ease-out: cubic-bezier(0.22, 0.68, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.5, 0, 0.3, 1);
 }
 
 :root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --radius: 1rem; /* fields/buttons round via md (14px), cards via xl (20px) */
+
+  /* Light scheme — cream canvas, white surfaces, ink text. */
+  --background: #faf6ef;
+  --foreground: #241f1a;
+  --foreground-strong: #181410;
+  --card: #ffffff;
+  --card-foreground: #241f1a;
+  --popover: #ffffff;
+  --popover-foreground: #241f1a;
+  --primary: #ad4f2e; /* clay — the one confident accent */
+  --primary-hover: #8e3f25;
+  --primary-foreground: #fff7f2;
+  --secondary: #f4ece0; /* sunken sand panels, fields */
+  --secondary-foreground: #423a31;
+  --muted: #f4ece0;
+  --muted-foreground: #6e6457;
+  --accent: #fbede5; /* soft clay tint for hovers/badges */
+  --accent-foreground: #8e3f25;
+  --destructive: #a8432e;
+  --border: #ece1d2; /* warm hairline */
+  --input: #decfbc;
+  --ring: #c2603c;
+
+  --bubble-user: #241f1a; /* ink bubble, clay-cream text */
+  --bubble-user-foreground: #fbede5;
+
+  --info: #f4ece0;
+  --info-foreground: #423a31;
+  --info-border: #ece1d2;
+  --caution: #fbede5;
+  --caution-foreground: #6e311e;
+  --caution-border: #f6d9c9;
+  --critical: #f6ddd5;
+  --critical-foreground: #7e3122;
+  --critical-border: #ecc5b8;
+  --positive: #eceedc;
+  --positive-foreground: #515b38;
+  --positive-border: #d9ddbe;
 }
 
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+/* Dark scheme — same warm family: near-black ink surfaces, cream
+   text, clay lifted one step for contrast. Applied by the OS
+   preference; form controls follow via color-scheme below. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #171310;
+    --foreground: #f1eae1;
+    --foreground-strong: #faf6ef;
+    --card: #221c16;
+    --card-foreground: #f1eae1;
+    --popover: #221c16;
+    --popover-foreground: #f1eae1;
+    --primary: #c2603c;
+    --primary-hover: #d17b53;
+    --primary-foreground: #fff7f2;
+    --secondary: #2c241d;
+    --secondary-foreground: #ddd3c6;
+    --muted: #2c241d;
+    --muted-foreground: #a39685;
+    --accent: #33261d;
+    --accent-foreground: #eebba1;
+    --destructive: #c05b41;
+    --border: rgba(244, 236, 224, 0.14);
+    --input: rgba(244, 236, 224, 0.22);
+    --ring: #d17b53;
+
+    --bubble-user: #f1eae1; /* inverted: cream bubble, ink text */
+    --bubble-user-foreground: #241f1a;
+
+    --info: #241e18;
+    --info-foreground: #c9bcab;
+    --info-border: rgba(244, 236, 224, 0.12);
+    --caution: #38261b;
+    --caution-foreground: #eebba1;
+    --caution-border: #55341f;
+    --critical: #3b211a;
+    --critical-foreground: #eba891;
+    --critical-border: #5c2f21;
+    --positive: #252a18;
+    --positive-foreground: #c3cd96;
+    --positive-border: #3c4423;
+  }
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
+  html {
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    html {
+      color-scheme: dark;
+    }
+  }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background font-sans text-foreground;
+  }
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+}
+
+@layer components {
+  /* Page canvas: flat warm background with one very soft clay
+     glow behind the header area — never a cold gradient. */
+  .page-canvas {
+    background:
+      radial-gradient(
+        70rem 32rem at 50% -8rem,
+        color-mix(in srgb, var(--ring) 8%, transparent),
+        transparent 70%
+      ),
+      var(--background);
+  }
+
+  /* Markdown answers (chat bubbles, report panel). Replaces the
+     unstyled-typography defaults with the theme's rhythm. */
+  .rich-text {
+    font-size: var(--text-sm);
+    line-height: 1.55;
+    overflow-wrap: break-word;
+  }
+  .rich-text p {
+    margin-block: calc(var(--spacing) * 2);
+  }
+  .rich-text ul,
+  .rich-text ol {
+    margin-block: calc(var(--spacing) * 2);
+    padding-inline-start: calc(var(--spacing) * 5);
+  }
+  .rich-text ul {
+    list-style: disc;
+  }
+  .rich-text ol {
+    list-style: decimal;
+  }
+  .rich-text li {
+    margin-block: calc(var(--spacing) * 0.5);
+  }
+  .rich-text h1,
+  .rich-text h2,
+  .rich-text h3,
+  .rich-text h4 {
+    font-family: var(--font-heading), Georgia, serif;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    color: var(--foreground-strong);
+    margin-block: calc(var(--spacing) * 3) calc(var(--spacing) * 1);
+  }
+  .rich-text h1 {
+    font-size: var(--text-lg);
+  }
+  .rich-text h2 {
+    font-size: var(--text-md);
+  }
+  .rich-text h3,
+  .rich-text h4 {
+    font-size: var(--text-base);
+  }
+  .rich-text a {
+    color: var(--accent-foreground);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .rich-text code {
+    font-family: var(--font-mono);
+    font-size: 0.8125em;
+    background: var(--secondary);
+    border-radius: var(--radius-xs);
+    padding: 0.1em 0.35em;
+  }
+  .rich-text pre {
+    background: var(--secondary);
+    border-radius: var(--radius-sm);
+    padding: calc(var(--spacing) * 3);
+    overflow-x: auto;
+    margin-block: calc(var(--spacing) * 2);
+  }
+  .rich-text pre code {
+    background: none;
+    padding: 0;
+  }
+  .rich-text blockquote {
+    border-inline-start: 2px solid var(--border);
+    padding-inline-start: calc(var(--spacing) * 3);
+    color: var(--muted-foreground);
+    font-style: italic;
+    margin-block: calc(var(--spacing) * 2);
+  }
+  .rich-text hr {
+    border-color: var(--border);
+    margin-block: calc(var(--spacing) * 3);
+  }
+  .rich-text table {
+    width: 100%;
+    font-size: var(--text-xs);
+    border-collapse: collapse;
+    margin-block: calc(var(--spacing) * 2);
+  }
+  .rich-text th,
+  .rich-text td {
+    border: 1px solid var(--border);
+    padding: calc(var(--spacing) * 1.5) calc(var(--spacing) * 2);
+    text-align: left;
+  }
+  .rich-text > :first-child {
+    margin-block-start: 0;
+  }
+  .rich-text > :last-child {
+    margin-block-end: 0;
+  }
+
+  /* Coach "thinking" dots — breathe gently, hold still when the
+     visitor prefers reduced motion. */
+  .typing-dots {
+    display: inline-flex;
+    gap: calc(var(--spacing) * 1);
+  }
+  .typing-dots i {
+    width: 7px;
+    height: 7px;
+    border-radius: 999px;
+    background: var(--muted-foreground);
+    opacity: 0.3;
+    animation: typing-breathe 1.2s infinite var(--ease-in-out);
+  }
+  .typing-dots i:nth-child(2) {
+    animation-delay: 0.18s;
+  }
+  .typing-dots i:nth-child(3) {
+    animation-delay: 0.36s;
+  }
+  @keyframes typing-breathe {
+    0%,
+    60%,
+    100% {
+      opacity: 0.3;
+      transform: translateY(0);
+    }
+    30% {
+      opacity: 1;
+      transform: translateY(-3px);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .typing-dots i {
+      animation: none;
+      opacity: 0.6;
+    }
   }
 }
