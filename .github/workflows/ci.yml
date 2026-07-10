@@ -1,8 +1,15 @@
 # Eval-gated CI: every claim this repo documents is re-derived from the
-# committed data on every push, and the build fails on drift.
+# committed data on every push, and the build fails on drift — and green CI
+# also proves the APP compiles, not just the gates math.
 #
 #   test                 the keyless suite (node:test via tsx) — no env vars,
 #                        no API keys, no network.
+#   typecheck            tsc --noEmit over the whole repo (app/ included) —
+#                        a type error in a route or component fails CI.
+#   lint                 eslint (next config) over the whole repo.
+#   build                next build with no env vars: proves the product
+#                        compiles and the keyless demo deployment is buildable
+#                        exactly as a fresh clone would build it.
 #   claims-drift         re-runs the tau calibration and the measured-sentence
 #                        generator against the committed red-team replay and
 #                        fails if the docs' numbers no longer match; also
@@ -11,8 +18,9 @@
 #   coverage-consistency counts eval case files on disk and fails if the
 #                        COVERAGE.md grid disagrees.
 #
-# Every step is runnable locally: npm test, npm run check:claims,
-# npm run check:coverage, npm run check:demo.
+# Every step is runnable locally: npm test, npm run typecheck, npm run lint,
+# npm run build, npm run check:claims, npm run check:coverage,
+# npm run check:demo.
 
 name: CI
 
@@ -43,6 +51,48 @@ jobs:
         run: npm ci
       - name: Keyless test suite
         run: npm test
+
+  typecheck:
+    name: typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install (lockfile-exact)
+        run: npm ci
+      - name: tsc --noEmit
+        run: npm run typecheck
+
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install (lockfile-exact)
+        run: npm ci
+      - name: eslint
+        run: npm run lint
+
+  build:
+    name: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install (lockfile-exact)
+        run: npm ci
+      - name: next build (keyless, like a fresh clone)
+        run: npm run build
 
   claims-drift:
     name: claims-drift
