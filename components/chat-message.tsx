@@ -2,9 +2,10 @@
 
 /**
  * Shared chat-message renderer for the live coach (app/page.tsx) and the
- * keyless demo (app/demo/page.tsx). Extracted verbatim from app/page.tsx so
- * both surfaces render answers — and every gate banner (OOD abstention, HITL
- * review, re-retrieval note, grounding check) — through the same component.
+ * keyless demo (app/demo/page.tsx). Both surfaces render answers — and every
+ * gate banner (OOD abstention, HITL review, re-retrieval note, grounding
+ * check) — through this component, and every gate/error banner renders
+ * through the designed Notice surface (components/notice.tsx).
  */
 
 import ReactMarkdown from "react-markdown";
@@ -16,6 +17,8 @@ import {
   ShieldAlert,
   ShieldCheck,
 } from "lucide-react";
+
+import { Notice } from "@/components/notice";
 
 export interface Scores {
   overall: number;
@@ -157,25 +160,42 @@ export function ChatMessage({ message: m }: { message: Message }) {
     m.role === "assistant" ? (m.signals?.grounding ?? null) : null;
   const ood = m.role === "assistant" ? (m.signals?.ood ?? null) : null;
 
+  // Error / not-configured notices are a designed state, not an answer
+  // bubble: a caution Notice replaces the bubble entirely.
+  if (m.role === "assistant" && m.notice) {
+    return (
+      <div className="mb-4 text-left">
+        <Notice
+          tone="caution"
+          icon={AlertTriangle}
+          role="alert"
+          className="max-w-[90%]"
+        >
+          <p>{m.content}</p>
+        </Notice>
+      </div>
+    );
+  }
+
   return (
     <div className={`mb-4 ${m.role === "user" ? "text-right" : "text-left"}`}>
       <div
-        className={`inline-block p-3 rounded-lg text-left ${
+        className={`inline-block text-left ${
           m.role === "user"
-            ? "max-w-[85%] bg-blue-600 text-white"
-            : m.notice
-              ? "max-w-[90%] bg-amber-50 text-amber-900 border border-amber-200"
-              : "max-w-[90%] bg-slate-200 text-slate-800"
+            ? "max-w-[85%] rounded-lg rounded-br-xs bg-bubble-user px-4 py-3 text-bubble-user-foreground"
+            : "max-w-[90%] rounded-lg rounded-bl-xs bg-muted px-4 py-3 text-foreground"
         }`}
       >
         {m.role === "assistant" ? (
-          <div className="prose prose-sm prose-slate max-w-none break-words prose-p:my-2 prose-ul:my-2 prose-ol:my-2 prose-li:my-0.5 prose-headings:mt-3 prose-headings:mb-1">
+          <div className="rich-text">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>
               {m.content}
             </ReactMarkdown>
           </div>
         ) : (
-          <span className="whitespace-pre-wrap break-words">{m.content}</span>
+          <span className="text-sm whitespace-pre-wrap break-words">
+            {m.content}
+          </span>
         )}
       </div>
 
@@ -183,55 +203,47 @@ export function ChatMessage({ message: m }: { message: Message }) {
           produced outside the bubble too, so honesty is visible in any
           recording. */}
       {m.role === "assistant" && m.demoNote && (
-        <div className="mt-1 text-[11px] text-slate-400">{m.demoNote}</div>
+        <div className="mt-1 text-xs text-muted-foreground/80">{m.demoNote}</div>
       )}
 
       {/* Pre-generation OOD screen: the query was clearly off-résumé,
           so the coach gave an honest non-answer BEFORE the model could
           confabulate. Threshold is conformal-calibrated (ood-gate.ts). */}
       {ood?.abstained && (
-        <div
-          role="status"
-          className="mt-2 max-w-[90%] text-xs text-sky-900 bg-sky-50 border border-sky-200 rounded-md px-3 py-2 flex items-start gap-2"
-          title={`OOD score ${ood.score.toFixed(3)} > calibrated threshold ${ood.threshold !== null ? ood.threshold.toFixed(3) : "n/a"} (target abstain budget ${(ood.targetAbstainRate * 100).toFixed(0)}%)`}
+        <Notice
+          tone="info"
+          icon={FileQuestion}
+          title="Off-résumé question — answered without the model."
+          className="mt-2 max-w-[90%]"
+          htmlTitle={`OOD score ${ood.score.toFixed(3)} > calibrated threshold ${ood.threshold !== null ? ood.threshold.toFixed(3) : "n/a"} (target abstain budget ${(ood.targetAbstainRate * 100).toFixed(0)}%)`}
         >
-          <FileQuestion className="h-4 w-4 shrink-0 mt-0.5" aria-hidden />
-          <span>
-            <span className="font-medium">
-              Off-résumé question — answered without the model.
-            </span>
-            <span className="block text-sky-800">
-              This sits outside what your résumé covers (retrieval surprise{" "}
-              {ood.score.toFixed(2)} over the calibrated{" "}
-              {ood.threshold !== null ? ood.threshold.toFixed(2) : "n/a"}{" "}
-              cutoff), so the coach didn&apos;t generate an answer rather than
-              risk inventing one.
-            </span>
-          </span>
-        </div>
+          <p className="mt-0.5">
+            This sits outside what your résumé covers (retrieval surprise{" "}
+            {ood.score.toFixed(2)} over the calibrated{" "}
+            {ood.threshold !== null ? ood.threshold.toFixed(2) : "n/a"} cutoff),
+            so the coach didn&apos;t generate an answer rather than risk
+            inventing one.
+          </p>
+        </Notice>
       )}
 
       {/* Confidence / HITL review banner — driven by the live
           quality-gate signals (sparse data density, high-stakes
           keyword, or an answer that did not clear the quality bar). */}
       {m.role === "assistant" && routeToHuman && (
-        <div
-          role="status"
-          className="mt-2 max-w-[90%] text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-3 py-2 flex items-start gap-2"
-          title={m.signals?.hitl.reason}
+        <Notice
+          tone="caution"
+          icon={AlertTriangle}
+          title="Low confidence — consider human review."
+          className="mt-2 max-w-[90%]"
+          htmlTitle={m.signals?.hitl.reason}
         >
-          <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" aria-hidden />
-          <span>
-            <span className="font-medium">
-              Low confidence — consider human review.
-            </span>
-            {reviewTriggers.length > 0 && (
-              <span className="block text-amber-700">
-                Flagged because: {reviewTriggers.join("; ")}.
-              </span>
-            )}
-          </span>
-        </div>
+          {reviewTriggers.length > 0 && (
+            <p className="mt-0.5">
+              Flagged because: {reviewTriggers.join("; ")}.
+            </p>
+          )}
+        </Notice>
       )}
 
       {/* Backward-compatible low-confidence note for responses with
@@ -240,7 +252,7 @@ export function ChatMessage({ message: m }: { message: Message }) {
         !m.signals &&
         m.scores &&
         m.scores.overall < 75 && (
-          <div className="mt-2 text-xs text-amber-700 flex items-center gap-1">
+          <div className="mt-2 flex items-center gap-1.5 text-xs text-caution-foreground">
             <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden />
             <span>
               I&apos;m less confident about this response. Consider verifying
@@ -252,8 +264,10 @@ export function ChatMessage({ message: m }: { message: Message }) {
       {/* Subtle re-retrieval indicator. */}
       {m.role === "assistant" && reNote && (
         <div
-          className={`mt-1.5 text-[11px] flex items-center gap-1 ${
-            reNote.tone === "info" ? "text-slate-500" : "text-slate-400"
+          className={`mt-1.5 flex items-center gap-1.5 text-xs ${
+            reNote.tone === "info"
+              ? "text-muted-foreground"
+              : "text-muted-foreground/70"
           }`}
         >
           <RefreshCw className="h-3 w-3 shrink-0" aria-hidden />
@@ -266,36 +280,34 @@ export function ChatMessage({ message: m }: { message: Message }) {
           'flagged' = >=1 claim not supported; 'clean'/'deterministic-
           only' shown subtly; 'skipped'/'unavailable' render nothing. */}
       {grounding && grounding.status === "flagged" && (
-        <div
-          role="status"
-          className="mt-2 max-w-[90%] text-xs text-rose-800 bg-rose-50 border border-rose-200 rounded-md px-3 py-2"
+        <Notice
+          tone="critical"
+          icon={ShieldAlert}
+          title={`Grounding check: ${grounding.unsupported + grounding.overclaim} statement${grounding.unsupported + grounding.overclaim === 1 ? "" : "s"} not fully supported by your résumé.`}
+          className="mt-2 max-w-[90%]"
         >
-          <div className="flex items-start gap-2">
-            <ShieldAlert className="h-4 w-4 shrink-0 mt-0.5" aria-hidden />
-            <span className="font-medium">
-              Grounding check: {grounding.unsupported + grounding.overclaim}{" "}
-              statement
-              {grounding.unsupported + grounding.overclaim === 1 ? "" : "s"} not
-              fully supported by your résumé.
-            </span>
-          </div>
           {grounding.flagged.length > 0 && (
-            <ul className="mt-1.5 ml-6 list-disc space-y-0.5 text-rose-700">
+            <ul className="mt-1.5 ml-4 list-disc space-y-0.5">
               {grounding.flagged.slice(0, 5).map((f, j) => (
                 <li key={j}>
-                  <span className="italic">&ldquo;{f.claim}&rdquo;</span>
+                  <span className="font-serif italic">
+                    &ldquo;{f.claim}&rdquo;
+                  </span>
                   {f.note ? <span> — {f.note}</span> : null}
                 </li>
               ))}
             </ul>
           )}
-        </div>
+        </Notice>
       )}
       {grounding &&
         (grounding.status === "clean" ||
           grounding.status === "deterministic-only") && (
-          <div className="mt-1.5 text-[11px] flex items-center gap-1 text-slate-500">
-            <ShieldCheck className="h-3 w-3 shrink-0" aria-hidden />
+          <div className="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+            <ShieldCheck
+              className="h-3 w-3 shrink-0 text-positive-foreground"
+              aria-hidden
+            />
             <span>
               {grounding.status === "clean"
                 ? `Grounding check: ${grounding.checked} claim${grounding.checked === 1 ? "" : "s"} reconciled against your résumé.`
