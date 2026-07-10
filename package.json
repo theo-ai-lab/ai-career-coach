@@ -31,7 +31,8 @@
     "test:demo": "tsx --test lib/demo/*.test.ts",
     "check:claims": "tsx scripts/calibrate-ood-gate.ts --check && tsx scripts/ci/check-calibration-docs.ts && tsx scripts/ci/check-readme-sentence.ts",
     "check:coverage": "node scripts/ci/check-coverage-counts.mjs",
-    "check:demo": "tsx scripts/build-demo-artifacts.ts --check"
+    "check:demo": "tsx scripts/build-demo-artifacts.ts --check",
+    "verify:live": "node scripts/verify-live.mjs"
   },
   "dependencies": {
     "@langchain/community": "^1.0.4",
