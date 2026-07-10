@@ -86,3 +86,17 @@ export const SERVICE_UNAVAILABLE_PAYLOAD = {
   message:
     'The coaching service is not configured. The live answer path requires an OpenAI key and a Supabase connection; set them to enable grounded answers.',
 } as const;
+
+/**
+ * Client-safe payload for LLM-only routes (the single-agent /api/agents/*
+ * endpoints and the eval judge): they need generation but no retrieval, so
+ * they gate on `config.openai` alone and their copy must not claim a
+ * Supabase connection is required. Same discipline as its sibling: never
+ * enumerates env var names.
+ */
+export const GENERATION_UNAVAILABLE_PAYLOAD = {
+  error: 'service_unavailable',
+  configured: false,
+  message:
+    'The generation service is not configured. This endpoint requires an OpenAI key; set it to enable generation.',
+} as const;

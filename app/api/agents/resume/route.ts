@@ -2,6 +2,13 @@
 
 import { NextRequest } from "next/server";
 
+import {
+  getServiceConfig,
+  SERVICE_UNAVAILABLE_PAYLOAD,
+} from "@/lib/service-config";
+import { BACKEND_UNAVAILABLE_PAYLOAD } from "@/lib/backend-liveness";
+import { getBackendLiveness } from "@/lib/backend-liveness-server";
+
 import { analyzeResume } from "@/lib/agents/resume-analyzer/node";
 
 export async function POST(req: NextRequest) {
@@ -10,6 +17,28 @@ export async function POST(req: NextRequest) {
 
     if (!userId || !resumeText)
       return Response.json({ error: "Missing data" }, { status: 400 });
+
+    // Honesty gate: this route needs an OpenAI key AND the Supabase backend
+    // (pgvector retrieval). Missing keys -> designed 503; keys present but
+    // backend dead (shared cached probe) -> designed 503 — both BEFORE any
+    // OpenAI spend, never a generic 500 from deep inside retrieval.
+    const config = getServiceConfig();
+    if (!config.ready) {
+      console.warn(
+        "[Resume] Service not configured; missing env:",
+        config.missing.join(", "),
+      );
+      return Response.json(SERVICE_UNAVAILABLE_PAYLOAD, { status: 503 });
+    }
+    const liveness = await getBackendLiveness().check();
+    if (!liveness.alive) {
+      console.error(
+        "[Resume] Backend liveness check failed:",
+        liveness.reason,
+        `(${liveness.source})`,
+      );
+      return Response.json(BACKEND_UNAVAILABLE_PAYLOAD, { status: 503 });
+    }
 
     const analysis = await analyzeResume(userId, resumeText);
 

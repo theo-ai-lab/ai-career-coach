@@ -9,6 +9,7 @@ import assert from 'node:assert/strict';
 import {
   getServiceConfig,
   SERVICE_UNAVAILABLE_PAYLOAD,
+  GENERATION_UNAVAILABLE_PAYLOAD,
 } from './service-config';
 
 const FULL = {
@@ -76,4 +77,17 @@ test('unavailable payload never leaks key names and stays client-safe', () => {
   assert.equal(SERVICE_UNAVAILABLE_PAYLOAD.error, 'service_unavailable');
   assert.ok(!serialized.includes('OPENAI_API_KEY'));
   assert.ok(!serialized.includes('SUPABASE_SERVICE_ROLE_KEY'));
+});
+
+test('generation-unavailable payload is distinct, honest about scope, and client-safe', () => {
+  // LLM-only routes (the single-agent /api/agents/* endpoints) need
+  // generation but no retrieval, so their payload must not claim a Supabase
+  // connection is required — and, like its siblings, must never enumerate
+  // env var names.
+  const serialized = JSON.stringify(GENERATION_UNAVAILABLE_PAYLOAD);
+  assert.equal(GENERATION_UNAVAILABLE_PAYLOAD.configured, false);
+  assert.equal(GENERATION_UNAVAILABLE_PAYLOAD.error, 'service_unavailable');
+  assert.match(GENERATION_UNAVAILABLE_PAYLOAD.message, /OpenAI/);
+  assert.ok(!/supabase/i.test(GENERATION_UNAVAILABLE_PAYLOAD.message));
+  assert.ok(!serialized.includes('OPENAI_API_KEY'));
 });

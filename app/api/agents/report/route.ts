@@ -1,6 +1,8 @@
 import { NextRequest } from "next/server";
 import { reportGraph } from "@/lib/report-graph";
 import { getServiceConfig } from "@/lib/service-config";
+import { BACKEND_UNAVAILABLE_PAYLOAD } from "@/lib/backend-liveness";
+import { getBackendLiveness } from "@/lib/backend-liveness-server";
 
 interface RequestBody {
   resumeId: string;
@@ -38,6 +40,19 @@ export async function POST(req: NextRequest) {
         "The report service is not configured. Generating a full report requires an OpenAI key and a Supabase connection.",
         { status: 503 },
       );
+    }
+
+    // Honesty gate, part two: keys present but the backend behind them dead
+    // (shared cached probe) -> designed 503 before the 5-6 LLM-call graph
+    // spends anything. Plain text body, matching this route's convention.
+    const liveness = await getBackendLiveness().check();
+    if (!liveness.alive) {
+      console.error(
+        "[Report] Backend liveness check failed:",
+        liveness.reason,
+        `(${liveness.source})`,
+      );
+      return new Response(BACKEND_UNAVAILABLE_PAYLOAD.message, { status: 503 });
     }
 
     // Set defaults

@@ -1,5 +1,11 @@
 import { NextRequest } from "next/server";
 import { getResumeContextById, getChatClient } from "@/lib/rag";
+import {
+  getServiceConfig,
+  SERVICE_UNAVAILABLE_PAYLOAD,
+} from "@/lib/service-config";
+import { BACKEND_UNAVAILABLE_PAYLOAD } from "@/lib/backend-liveness";
+import { getBackendLiveness } from "@/lib/backend-liveness-server";
 import type { JobMatch } from "@/lib/agents/job-matcher/schema";
 
 export const runtime = "nodejs";
@@ -48,6 +54,28 @@ export async function POST(req: NextRequest) {
         { error: "Missing required field: jobDescription" },
         { status: 400 },
       );
+    }
+
+    // Honesty gate: this route needs an OpenAI key AND the Supabase backend
+    // (pgvector retrieval). Missing keys -> designed 503; keys present but
+    // backend dead (shared cached probe) -> designed 503 — both BEFORE any
+    // OpenAI spend, never a generic 500 from deep inside retrieval.
+    const config = getServiceConfig();
+    if (!config.ready) {
+      console.warn(
+        "[JobMatcher] Service not configured; missing env:",
+        config.missing.join(", "),
+      );
+      return Response.json(SERVICE_UNAVAILABLE_PAYLOAD, { status: 503 });
+    }
+    const liveness = await getBackendLiveness().check();
+    if (!liveness.alive) {
+      console.error(
+        "[JobMatcher] Backend liveness check failed:",
+        liveness.reason,
+        `(${liveness.source})`,
+      );
+      return Response.json(BACKEND_UNAVAILABLE_PAYLOAD, { status: 503 });
     }
 
     // Step 1: Retrieve resume context via RAG

@@ -4,6 +4,10 @@ import {
   CoachingQualityInput,
 } from "@/lib/evals/coaching-quality";
 import { getSupabase } from "@/lib/supabase";
+import {
+  getServiceConfig,
+  GENERATION_UNAVAILABLE_PAYLOAD,
+} from "@/lib/service-config";
 
 export const runtime = "nodejs";
 
@@ -22,6 +26,21 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Honesty gate: the judge is an OpenAI call. Without the key, return
+    // the designed 503 instead of a generic 500 from inside the LLM call.
+    // Storage is best-effort and separately guarded below.
+    const config = getServiceConfig();
+    if (!config.openai) {
+      console.warn(
+        "[Evals] Generation not configured; missing env:",
+        config.missing.join(", "),
+      );
+      return new Response(JSON.stringify(GENERATION_UNAVAILABLE_PAYLOAD), {
+        status: 503,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
     // Run evaluation
     const evalResult = await evaluateCoachingQuality({
       query,
@@ -29,21 +48,27 @@ export async function POST(req: NextRequest) {
       contexts,
     } as CoachingQualityInput);
 
-    // Store in Supabase
-    const supabase = getSupabase();
-    const { error: dbError } = await supabase.from("evals").insert({
-      response_id: responseId || null,
-      query,
-      response,
-      contexts,
-      scores: evalResult.scores,
-      reasoning: evalResult.reasoning,
-      overall_score: evalResult.overall,
-    });
+    // Store in Supabase (best-effort). Guarded on configuration so an
+    // optional write can never turn a successful judge result into a 500
+    // (getSupabase() throws when its env vars are unset).
+    if (config.supabase) {
+      const supabase = getSupabase();
+      const { error: dbError } = await supabase.from("evals").insert({
+        response_id: responseId || null,
+        query,
+        response,
+        contexts,
+        scores: evalResult.scores,
+        reasoning: evalResult.reasoning,
+        overall_score: evalResult.overall,
+      });
 
-    if (dbError) {
-      console.error("Failed to store eval in Supabase:", dbError);
-      // Don't fail the request if DB write fails, just log it
+      if (dbError) {
+        console.error("Failed to store eval in Supabase:", dbError);
+        // Don't fail the request if DB write fails, just log it
+      }
+    } else {
+      console.warn("[Evals] Supabase not configured; eval result not stored.");
     }
 
     return new Response(
