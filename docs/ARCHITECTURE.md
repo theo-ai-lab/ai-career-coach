@@ -582,7 +582,7 @@ Response Generated
 
 2. **API:**
    - Next.js serverless functions auto-scale
-   - Rate limiting (planned)
+   - Per-IP token-bucket rate limiting on every route (`lib/rate-limit.ts`; per-instance in-memory — shared store is the upgrade path)
    - Caching for common queries (planned)
 
 3. **Memory System:**
@@ -605,7 +605,7 @@ Response Generated
 ### Short-term
 - **Streaming Responses:** Real-time response streaming for better UX
 - **Caching Layer:** Redis for frequently accessed data
-- **Rate Limiting:** Protect against abuse
+- **Distributed Rate Limiting:** per-IP token buckets ship today per instance (`lib/rate-limit.ts`); the upgrade is a shared store (e.g. Upstash) or platform WAF rule so limits hold across serverless instances
 
 ### Medium-term
 - **Voice Interface:** WebRTC for interview practice

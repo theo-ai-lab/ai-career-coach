@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { enforceRateLimit } from "@/lib/rate-limit-server";
 import {
   evaluateCoachingQuality,
   CoachingQualityInput,
@@ -12,6 +13,11 @@ import {
 export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
+  // Per-IP rate gate FIRST — before body parsing, before the honesty
+  // gates, before any OpenAI spend (lib/rate-limit.ts).
+  const limited = enforceRateLimit(req, "evals");
+  if (limited) return limited;
+
   try {
     const body = await req.json();
     const { query, response, contexts, responseId } = body;

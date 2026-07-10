@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { enforceRateLimit } from "@/lib/rate-limit-server";
 import { getResumeContextById, getChatClient } from "@/lib/rag";
 import {
   getServiceConfig,
@@ -38,6 +39,11 @@ function parseJsonResponse(content: string): unknown {
 }
 
 export async function POST(req: NextRequest) {
+  // Per-IP rate gate FIRST — before body parsing, before the honesty
+  // gates, before any OpenAI spend (lib/rate-limit.ts).
+  const limited = enforceRateLimit(req, "agents");
+  if (limited) return limited;
+
   try {
     const body: RequestBody = await req.json();
     const { resumeId, jobDescription } = body;

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { enforceRateLimit } from "@/lib/rate-limit-server";
 
 import { getSupabase } from "@/lib/supabase";
 import { getChatClient, getEmbeddings } from "@/lib/rag";
@@ -77,6 +78,11 @@ function buildDeps(): CoachPipelineDeps {
 }
 
 export async function POST(req: NextRequest) {
+  // Per-IP rate gate FIRST — before body parsing, before the honesty
+  // gates, before any OpenAI spend (lib/rate-limit.ts).
+  const limited = enforceRateLimit(req, "query");
+  if (limited) return limited;
+
   let body: unknown;
   try {
     body = await req.json();

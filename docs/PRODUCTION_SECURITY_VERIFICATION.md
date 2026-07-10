@@ -298,6 +298,51 @@ Post-remediation smoke tests passed:
 - Avoid-path answer was grounded in resume content.
 - The `No relevant experience found.` fallback did not appear.
 
+## Rate Limiting And The Abuse Model
+
+Every API route is unauthenticated, and most spend OpenAI tokens per request:
+
+| Surface | Routes | What one request spends | Per-IP budget (burst / sustained) |
+|---|---|---|---|
+| `query` | `/api/query` | 1 embedding + 1-N generations + judge | 8 / 4 per min |
+| `agents` | `/api/agents/*` (7 routes, one shared bucket) | ChatOpenAI chain; `report` runs an 8-node graph | 8 / 4 per min |
+| `evals` | `/api/evals/coaching-quality` | 1 judge call | 8 / 4 per min |
+| `upload` | `/api/upload` | PDF parse + 1 embedding per chunk | 4 / 2 per min |
+| `demo` | `/api/demo/query` | nothing (keyless) — DoS surface only | 30 / 20 per min |
+| `health` | `/api/health` | nothing (cached probe) | 60 / 30 per min |
+
+Mechanics (`lib/rate-limit.ts`, enforced by `lib/rate-limit-server.ts` as the
+FIRST statement of every handler, before body parsing and before any spend):
+
+- Token bucket per (surface, client IP); denial returns the designed 429
+  payload (`rate_limited` + client-safe message) with an honest `Retry-After`.
+- Client IP comes from `x-forwarded-for` (set by Vercel) with `x-real-ip`
+  fallback; requests with neither share one `unknown` bucket (fail-closed:
+  an unattributable flood is capped, not unmetered).
+- The bucket map is bounded (LRU eviction at 10,000 keys), so rotating
+  spoofed IPs cannot exhaust instance memory.
+- Budgets are sized for a single human using the product, not calibrated on
+  production traffic (none exists yet); recalibration is pending real
+  traffic like every other live number in this repo.
+
+Honest limits of the current implementation:
+
+- **Per-instance, in-memory.** On serverless, each warm instance holds its
+  own buckets and cold starts reset them: the effective global cap is
+  (instances × budget). This stops the realistic abuse case for a
+  low-traffic demo (one caller in a loop against a warm instance) but not a
+  deliberately distributed attacker. The production upgrade — a shared
+  store (e.g. Upstash Redis) or a platform WAF rule — is planned, not built.
+- **Header trust.** Behind Vercel the platform controls `x-forwarded-for`;
+  on a bare origin the header is client-controlled, which collapses to the
+  shared `unknown`/spoofed-key behavior above, bounded by the eviction cap.
+
+Verification: `lib/rate-limit.test.ts` locks the bucket math, the designed
+429 contract, per-surface isolation, the policy table (every surface class
+covered; spend surfaces strictly tighter than keyless ones), and the memory
+bound — all offline, no keys.
+
 ## Current Known Gaps
 
 - Stale `match_documents` v1 docs/types references were cleaned up on 2026-05-16; intentional v1-absence verification references remain.
+- Rate limiting is per-instance in-memory (see above); limits do not yet hold across serverless instances.

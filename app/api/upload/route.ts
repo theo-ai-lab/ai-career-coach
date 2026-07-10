@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { enforceRateLimit } from "@/lib/rate-limit-server";
 
 import { getSupabase } from "@/lib/supabase";
 import { getEmbeddings } from "@/lib/rag";
@@ -30,6 +31,11 @@ import {
  *   - anything genuinely unexpected -> generic 500 (never the raw error).
  */
 export async function POST(req: NextRequest) {
+  // Per-IP rate gate FIRST — before body parsing, before the honesty
+  // gates, before any OpenAI spend (lib/rate-limit.ts).
+  const limited = enforceRateLimit(req, "upload");
+  if (limited) return limited;
+
   try {
     let formData: FormData;
     try {

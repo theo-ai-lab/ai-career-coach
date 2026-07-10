@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { enforceRateLimit } from "@/lib/rate-limit-server";
 import { runDemoQuery } from "@/lib/demo/run-demo-query";
 
 /**
@@ -16,6 +17,11 @@ import { runDemoQuery } from "@/lib/demo/run-demo-query";
  * route exists.
  */
 export async function POST(req: NextRequest) {
+  // Per-IP rate gate FIRST — before body parsing, before the honesty
+  // gates, before any OpenAI spend (lib/rate-limit.ts).
+  const limited = enforceRateLimit(req, "demo");
+  if (limited) return limited;
+
   try {
     const { query } = await req.json();
 

@@ -1,6 +1,7 @@
 // app/api/agents/gap/route.ts
 
 import { NextRequest } from "next/server";
+import { enforceRateLimit } from "@/lib/rate-limit-server";
 
 import {
   getServiceConfig,
@@ -12,6 +13,11 @@ import { findGaps } from "@/lib/agents/gap-finder/node";
 import { ResumeAnalysis } from "@/lib/agents/resume-analyzer/schema";
 
 export async function POST(req: NextRequest) {
+  // Per-IP rate gate FIRST — before body parsing, before the honesty
+  // gates, before any OpenAI spend (lib/rate-limit.ts).
+  const limited = enforceRateLimit(req, "agents");
+  if (limited) return limited;
+
   try {
     const { resumeAnalysis, jobDescription } = await req.json();
 

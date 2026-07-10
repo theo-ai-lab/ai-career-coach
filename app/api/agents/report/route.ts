@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { enforceRateLimit } from "@/lib/rate-limit-server";
 import { reportGraph } from "@/lib/report-graph";
 import { getServiceConfig } from "@/lib/service-config";
 import { BACKEND_UNAVAILABLE_PAYLOAD } from "@/lib/backend-liveness";
@@ -12,6 +13,11 @@ interface RequestBody {
 }
 
 export async function POST(req: NextRequest) {
+  // Per-IP rate gate FIRST — before body parsing, before the honesty
+  // gates, before any OpenAI spend (lib/rate-limit.ts).
+  const limited = enforceRateLimit(req, "agents");
+  if (limited) return limited;
+
   try {
     const body: RequestBody = await req.json();
     const {
