@@ -159,21 +159,24 @@ test('reportDead() flips a cached-alive checker to dead immediately', async () =
 
 test('concurrent checks share a single in-flight probe', async () => {
   let probes = 0;
-  let release: (() => void) | null = null;
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
   const checker = createLivenessChecker({
-    probe: () =>
-      new Promise<void>((resolve) => {
-        probes += 1;
-        release = resolve;
-      }),
+    probe: () => {
+      probes += 1;
+      return gate;
+    },
   });
 
   const a = checker.check();
   const b = checker.check();
-  // The probe starts on a microtask (sync-throw safety); yield so it runs.
+  // The probe starts on a microtask (sync-throw safety); yield so it runs
+  // before releasing it.
   await new Promise((resolve) => setImmediate(resolve));
-  assert.ok(release, 'probe should have started');
-  release!();
+  assert.equal(probes, 1, 'both checks should share one started probe');
+  release();
   const [ra, rb] = await Promise.all([a, b]);
 
   assert.equal(probes, 1);

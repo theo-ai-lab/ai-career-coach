@@ -17,6 +17,10 @@ import {
   SERVICE_UNAVAILABLE_PAYLOAD,
 } from "@/lib/service-config";
 import {
+  createLivenessChecker,
+  BACKEND_UNAVAILABLE_PAYLOAD,
+} from "@/lib/backend-liveness";
+import {
   runRetrievalPipeline,
   expandQueryWithProfile,
   routeForHitl,
@@ -52,6 +56,28 @@ import { runGroundingGate, type GroundingResult } from "@/lib/grounding";
  * for THIS instance only, not the calibrated cross-run measure.
  */
 const gateCounter = new GateCounter();
+
+/**
+ * Backend-liveness gate (honesty gate, part two). getServiceConfig() only
+ * proves the env vars are PRESENT; a deployment whose vars point at a dead or
+ * paused Supabase project passes that check and then fails inside retrieval.
+ * This cached probe (cheap HEAD select against the documents table, shared
+ * across requests for its TTL) catches that state up front so the route can
+ * return its designed 503 instead of a failure dressed up as an answer — and
+ * it runs BEFORE any OpenAI call, so a dead backend also spends nothing.
+ * Like gateCounter, per-instance and in-memory.
+ */
+const backendLiveness = createLivenessChecker({
+  probe: async () => {
+    const { error } = await getSupabase()
+      .from("documents")
+      .select("id", { head: true })
+      .limit(1);
+    // A PostgREST-level error (missing table/schema) also means the backend
+    // is not serving the product — treat it as dead, not just fetch failures.
+    if (error) throw new Error(error.message);
+  },
+});
 
 /**
  * Build the revision prompt for a satisficing iteration > 1. Carries the
@@ -116,6 +142,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(SERVICE_UNAVAILABLE_PAYLOAD, { status: 503 });
     }
 
+    // Honesty gate, part two: the env vars being set does not mean the
+    // backend behind them is up. Probe reachability (cached, cheap) before
+    // spending an embedding call or pretending to retrieve — a configured
+    // deployment pointed at a dead Supabase must say "service unavailable",
+    // not improvise an answer-shaped failure.
+    const liveness = await backendLiveness.check();
+    if (!liveness.alive) {
+      console.error(
+        "[Query] Backend liveness check failed:",
+        liveness.reason,
+        `(${liveness.source})`,
+      );
+      return NextResponse.json(BACKEND_UNAVAILABLE_PAYLOAD, { status: 503 });
+    }
+
     const supabase = getSupabase();
     const embeddings = getEmbeddings();
     const llm = getChatClient();
@@ -164,8 +205,17 @@ export async function POST(req: NextRequest) {
     });
 
     if (error) {
+      // A retrieval RPC failure is a SERVICE failure, not an honest empty
+      // retrieval. This branch used to return HTTP 200 "No relevant
+      // experience found." — masking a dead backend as a normal answer
+      // bubble, exactly the failure class the honesty gate exists to
+      // prevent (the genuinely-empty case at the no-documents branch below
+      // keeps that copy, with sources/signals attached). Return the
+      // designed 503 through the client's notice surface instead, and flip
+      // the liveness cache so subsequent requests fail fast up front.
       console.error("[Query] RPC error:", error);
-      return NextResponse.json({ answer: "No relevant experience found." });
+      backendLiveness.reportDead();
+      return NextResponse.json(BACKEND_UNAVAILABLE_PAYLOAD, { status: 503 });
     }
 
     const firstPage: RetrievedDoc[] = (data ?? []).map((d) => ({
