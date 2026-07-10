@@ -433,16 +433,71 @@ test('skipMemory: no memory reads or writes, single generation, no expansion', a
 });
 
 // ---------------------------------------------------------------------------
-// Memory scoping (locks the CURRENT aliasing so the extraction is provably
-// behavior-preserving; the safe-scoping default change replaces these)
+// Memory scoping — safe by DEFAULT.
+//
+// The red-team (2026-05-11, finding #3) traced a cross-conversation memory
+// leak to userId = resumeId aliasing: session summaries written under one
+// conversation were read back into unrelated later conversations that shared
+// the resumeId ("the anxiety you mentioned" surfacing two prompts later in a
+// different context). The fix used to be OPT-IN (skipMemory: true); these
+// tests lock the safe default instead: memory is scoped to the conversation
+// (resumeId + sessionId) unless the caller EXPLICITLY claims a stable
+// identity via userId.
 // ---------------------------------------------------------------------------
 
-test('legacy default: memory is keyed on resumeId (aliasing preserved by the extraction)', async () => {
+test('parseCoachRequest: optional userId is normalized (string kept, junk -> null)', () => {
+  const withUser = parseCoachRequest({ ...VALID_BODY, userId: 'u-42' });
+  assert.equal(withUser.ok, true);
+  if (withUser.ok) assert.equal(withUser.request.userId, 'u-42');
+
+  for (const userId of [undefined, null, '', 42, {}, []]) {
+    const parsed = parseCoachRequest({ ...VALID_BODY, userId });
+    assert.equal(parsed.ok, true);
+    if (parsed.ok) assert.equal(parsed.request.userId, null);
+  }
+});
+
+test('REGRESSION LOCK (red-team #3): default memory scope is the conversation, never bare resumeId', async () => {
   const { deps, calls } = makeDeps();
   await runCoachPipeline({ ...VALID_BODY, sessionId: 's1' }, deps);
-  assert.deepEqual(calls.memory, ['resume-123']);
+  assert.deepEqual(calls.memory, ['session:resume-123:s1']);
   assert.equal(calls.summarize.length, 1);
-  assert.equal(calls.summarize[0].userId, 'resume-123');
+  assert.equal(calls.summarize[0].userId, 'session:resume-123:s1');
+  assert.ok(
+    !calls.memory.includes('resume-123'),
+    'the bare resumeId memory key is the leak class and must never be used',
+  );
+});
+
+test('default scoping: two conversations on the same resume share NO memory key', async () => {
+  const first = makeDeps();
+  await runCoachPipeline({ ...VALID_BODY, sessionId: 'conv-a' }, first.deps);
+  const second = makeDeps();
+  await runCoachPipeline({ ...VALID_BODY, sessionId: 'conv-b' }, second.deps);
+  assert.notEqual(first.calls.memory[0], second.calls.memory[0]);
+  assert.notEqual(
+    first.calls.summarize[0].userId,
+    second.calls.summarize[0].userId,
+  );
+});
+
+test('fresh conversation (no sessionId) scopes memory to the minted session id', async () => {
+  const { deps, calls } = makeDeps();
+  const result = await runCoachPipeline(VALID_BODY, deps);
+  if (result.kind !== 'answered') assert.fail('expected an answered result');
+  assert.deepEqual(calls.memory, ['session:resume-123:session-fixed']);
+  assert.equal(calls.summarize[0].userId, 'session:resume-123:session-fixed');
+  assert.equal(result.body.sessionId, 'session-fixed');
+});
+
+test('explicit userId: cross-session memory is an EXPLICIT claim, namespaced apart from session scope', async () => {
+  const { deps, calls } = makeDeps();
+  await runCoachPipeline(
+    { ...VALID_BODY, sessionId: 's1', userId: 'u-42' },
+    deps,
+  );
+  assert.deepEqual(calls.memory, ['user:u-42']);
+  assert.equal(calls.summarize[0].userId, 'user:u-42');
 });
 
 test('memory read failure degrades to stateless, not an error', async () => {

@@ -315,22 +315,23 @@ Session Start
        │
        ├──► User uploads resume → resumeId generated
        │
-       ├──► First Query
-       │    ├──► getMemoryContext(resumeId)
-       │    │    ├──► getUserProfile(resumeId) → null (first time)
-       │    │    └──► getRecentSessions(resumeId, 3) → []
+       ├──► First Query (memoryKey = session:<resumeId>:<sessionId> by default,
+       │    │             or user:<userId> on an explicit identity claim)
+       │    ├──► getMemoryContext(memoryKey)
+       │    │    ├──► getUserProfile(memoryKey) → null (first time)
+       │    │    └──► getRecentSessions(memoryKey, 3) → []
        │    └──► Response generated without memory context
        │
        ├──► After Response (fire-and-forget)
-       │    └──► summarizeSessionAsync(resumeId, sessionId, messages)
+       │    └──► summarizeSessionAsync(memoryKey, sessionId, messages)
        │         ├──► GPT-4o-mini analyzes conversation
        │         ├──► Extracts: summary, decisions, topics, actions, sentiment
        │         └──► Insert into session_memories table
        │
-       └──► Next Query
-            ├──► getMemoryContext(resumeId)
-            │    ├──► getUserProfile(resumeId) → profile (if exists)
-            │    └──► getRecentSessions(resumeId, 3) → [session1, session2, ...]
+       └──► Next Query (same conversation → same memoryKey)
+            ├──► getMemoryContext(memoryKey)
+            │    ├──► getUserProfile(memoryKey) → profile (if exists)
+            │    └──► getRecentSessions(memoryKey, 3) → [session1, session2, ...]
             └──► Response includes memory context
                  └──► "Based on our last conversation..."
 ```
@@ -339,6 +340,13 @@ Session Start
 1. **Semantic Memory** (`user_profiles`): Goals, preferences, target companies
 2. **Episodic Memory** (`session_memories`): Conversation summaries, decisions, action items
 3. **Procedural Memory** (planned): Learned preferences from user reactions
+
+**Memory scoping (safe by default):** the memory key is computed in
+`lib/coach-pipeline.ts` — `session:<resumeId>:<sessionId>` unless the request
+explicitly claims a stable `userId` (then `user:<userId>`), and `skipMemory:
+true` disables memory entirely for eval runs. This replaced the original
+`userId = resumeId` aliasing, which let session summaries leak across
+unrelated conversations sharing a resume (red-team 2026-05-11 finding #3).
 
 **Code:** `lib/memory/semantic.ts`, `lib/memory/episodic.ts`, `lib/memory/retrieval.ts`
 
@@ -406,7 +414,7 @@ Response Generated
 | Column | Type | Description |
 |--------|------|-------------|
 | `id` | UUID | Primary key (default: uuid_generate_v4()) |
-| `user_id` | TEXT | Unique user identifier (resumeId) |
+| `user_id` | TEXT | Memory scope key (`session:<resumeId>:<sessionId>` by default; `user:<userId>` on an explicit claim) |
 | `name` | TEXT | User's name |
 | `current_role` | TEXT | Current job title |
 | `target_role` | TEXT | Desired role |
@@ -433,7 +441,7 @@ Response Generated
 | Column | Type | Description |
 |--------|------|-------------|
 | `id` | UUID | Primary key (default: uuid_generate_v4()) |
-| `user_id` | TEXT | User identifier (resumeId) |
+| `user_id` | TEXT | Memory scope key (`session:<resumeId>:<sessionId>` by default; `user:<userId>` on an explicit claim) |
 | `session_id` | TEXT | Unique session identifier |
 | `summary` | TEXT | 2-sentence conversation summary |
 | `key_decisions` | JSONB | Array of decisions made |
@@ -705,7 +713,14 @@ Response: { success: boolean, resumeId: string, chunks: number }
 **Query:**
 ```typescript
 POST /api/query
-Body: { query: string, resumeId?: string, sessionId?: string, messages?: Array }
+Body: {
+  query: string,
+  resumeId: string,
+  sessionId?: string,   // conversation id; memory is scoped to it by default
+  userId?: string,      // EXPLICIT opt-in to cross-session memory (user:<id>)
+  messages?: Array,
+  skipMemory?: boolean, // eval mode: no memory reads or writes
+}
 Response: { answer: string, sources: Array, sessionId: string }
 ```
 

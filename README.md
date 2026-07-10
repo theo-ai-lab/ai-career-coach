@@ -42,7 +42,7 @@ Built solo from November 2025 onward. Three architectural milestones live in the
 
 This is a prototype: a Vercel frontend is live, but the early-2026 pilot's backend is no longer accessible (the pilot itself is covered by the one-line note under [Evidence](#evidence)). There is no auth, rate limiting, or end-to-end outcome tracking yet — those are planned, not built.
 
-Known failure modes surfaced by the red-team (May 2026) — including a cross-conversation memory leak in `/api/query` traced to `userId = resumeId` aliasing — are documented in [`data/eval-benchmark/red-team-observations.md`](data/eval-benchmark/red-team-observations.md) and partially mitigated. The fix shipped behind a `skipMemory: true` request-body flag (see `app/api/query/route.ts` and the comment block at lines 28-33) so eval runs get clean stateless responses without changing default behavior for real users.
+Known failure modes surfaced by the red-team (May 2026) — including a cross-conversation memory leak in `/api/query` traced to `userId = resumeId` aliasing — are documented in [`data/eval-benchmark/red-team-observations.md`](data/eval-benchmark/red-team-observations.md). The leak class is now closed **by default**: memory is scoped to the conversation (`resumeId` + `sessionId`), so summaries written in one conversation can never surface in another; cross-session recall requires an explicit `userId` claim in the request body, and `skipMemory: true` still gives eval runs fully stateless responses (see the memory-scoping tests in `lib/coach-pipeline.test.ts`). Real per-user identity (auth) remains future work.
 
 ---
 

@@ -75,6 +75,14 @@ export interface CoachRequest {
   query: string;
   resumeId: string;
   sessionId: string | null;
+  /**
+   * Optional EXPLICIT stable identity claim. When present, memory (profile +
+   * session summaries) is scoped to `user:<userId>` and persists across
+   * conversations. When absent — the default — memory is scoped to the
+   * conversation (`session:<resumeId>:<sessionId>`), so nothing written in
+   * one conversation can leak into another (red-team 2026-05-11 finding #3).
+   */
+  userId: string | null;
   messages: ChatTurn[] | null;
   /** Eval/benchmark mode: stateless memory, no expansion, single draft. */
   skipMemory: boolean;
@@ -94,7 +102,7 @@ export function parseCoachRequest(body: unknown): CoachRequestValidation {
       ? (body as Record<string, unknown>)
       : {};
 
-  const { query, resumeId, sessionId, messages, skipMemory } = record;
+  const { query, resumeId, sessionId, userId, messages, skipMemory } = record;
 
   if (!resumeId || typeof resumeId !== 'string') {
     return { ok: false, error: 'resumeId required' };
@@ -116,6 +124,8 @@ export function parseCoachRequest(body: unknown): CoachRequestValidation {
         typeof sessionId === 'string' && sessionId.length > 0
           ? sessionId
           : null,
+      userId:
+        typeof userId === 'string' && userId.length > 0 ? userId : null,
       messages: Array.isArray(messages) ? (messages as ChatTurn[]) : null,
       skipMemory: skipMemory === true,
     },
@@ -167,11 +177,15 @@ export interface CoachPipelineDeps {
     response: string;
     contexts: string[];
   }): Promise<CoachingQualityOutput>;
-  /** Load profile + recent session summaries for a memory key. */
-  getMemoryContext(userId: string): Promise<MemoryContext>;
-  /** Fire-and-forget session summarization. */
+  /**
+   * Load profile + recent session summaries for a memory key. The pipeline
+   * computes the key (conversation-scoped by default, `user:<id>` on an
+   * explicit claim) — see the MEMORY SCOPING block in runCoachPipeline.
+   */
+  getMemoryContext(memoryKey: string): Promise<MemoryContext>;
+  /** Fire-and-forget session summarization, written under the same key. */
   summarizeSession(
-    userId: string,
+    memoryKey: string,
     sessionId: string,
     messages: ChatTurn[],
   ): void;
@@ -370,7 +384,8 @@ export async function runCoachPipeline(
       body: { error: parsed.error },
     };
   }
-  const { query, resumeId, sessionId, messages, skipMemory } = parsed.request;
+  const { query, resumeId, sessionId, userId, messages, skipMemory } =
+    parsed.request;
 
   // Honesty gate. The live answer path needs an OpenAI key (embeddings +
   // generation + judge) and a Supabase connection (pgvector). Without them
@@ -409,21 +424,31 @@ export async function runCoachPipeline(
     };
   }
 
-  // userId is currently aliased to resumeId, so the memory key is the
-  // resume rather than the user. For eval runs this means earlier prompts
-  // in the same script contaminate later prompts via the async session
-  // summarizer (red-team 2026-05-11 surfaced this: ec-01 referenced "the
-  // anxiety you mentioned" from cg-03 two prompts earlier). Callers can
-  // pass skipMemory: true to opt out of both loading and writing memory.
-  const userId = resumeId;
+  // MEMORY SCOPING — safe by default. The memory key used to be the bare
+  // resumeId ("userId = resumeId" aliasing), so session summaries written in
+  // one conversation leaked into every later conversation that shared the
+  // resumeId (red-team 2026-05-11 finding #3: ec-01 referenced "the anxiety
+  // you mentioned" from cg-03 two prompts earlier — and with no auth, two
+  // strangers querying the same resumeId would inherit each other's
+  // summaries). The fix used to be opt-in (skipMemory); now the DEFAULT
+  // scope is the conversation itself, and cross-session memory requires an
+  // EXPLICIT identity claim:
+  //   - default:            session:<resumeId>:<sessionId>  (no cross-talk)
+  //   - explicit userId:    user:<userId>                   (opted-in recall)
+  //   - skipMemory: true:   no memory reads or writes       (eval mode)
+  // The namespaced keys also never collide with legacy bare-resumeId rows,
+  // so pre-fix summaries (the leak class) are unreadable by design.
   const currentSessionId = sessionId || (deps.newSessionId ?? randomUUID)();
+  const memoryKey = userId
+    ? `user:${userId}`
+    : `session:${resumeId}:${currentSessionId}`;
 
   let memoryContext: MemoryContext;
   if (skipMemory) {
     memoryContext = EMPTY_MEMORY;
   } else {
     try {
-      memoryContext = await deps.getMemoryContext(userId);
+      memoryContext = await deps.getMemoryContext(memoryKey);
     } catch (memoryError: unknown) {
       log.warn(
         '[Memory] Failed to retrieve memory context:',
@@ -734,10 +759,10 @@ export async function runCoachPipeline(
         { role: 'user', content: query },
         { role: 'assistant', content: answer },
       ];
-      deps.summarizeSession(userId, currentSessionId, messagesForSummary);
+      deps.summarizeSession(memoryKey, currentSessionId, messagesForSummary);
     } else {
       // If no message history provided, summarize just this exchange
-      deps.summarizeSession(userId, currentSessionId, [
+      deps.summarizeSession(memoryKey, currentSessionId, [
         { role: 'user', content: query },
         { role: 'assistant', content: answer },
       ]);

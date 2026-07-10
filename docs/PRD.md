@@ -69,7 +69,7 @@ These are trust failures, not capability failures. The model is fluent. The gap 
 ## Non-goals
 
 - **Not** a calibration of the thresholds on production traffic. Every *gate* threshold shipped is an **unvalidated default** (`data-density.ts:49-55`, `satisficing.ts:44-48`, `info-gain.ts:57-60`), with one exception: the OOD abstention τ is the single value *fit to data* — split-conformal-calibrated to the committed red-team run (R8) — and even that should be **recalibrated against real traffic** before it is trusted as a release gate ([OOD_GATE_CALIBRATION.md](OOD_GATE_CALIBRATION.md) §6). Calibration on real traffic is gated on it arriving — see [ROADMAP.md](ROADMAP.md).
-- **Not** auth, rate limiting, or per-user identity. `userId` is still aliased to `resumeId` (`route.ts:123-129`); fixing that is out of scope here.
+- **Not** auth or per-user identity. (Since this PRD shipped, the `userId = resumeId` aliasing has been replaced by conversation-scoped memory by default — `lib/coach-pipeline.ts`, MEMORY SCOPING block — but authenticated identity is still out of scope.)
 - **Not** a human-review queue UI. The gate *routes* to human review and surfaces a banner; the actual reviewer workflow/inbox is not built.
 - **Not** the report path. Trustworthy Answering wires into `/api/query` (chat). The orchestrator (`/api/agents/report`) sets per-section eval scores but does not yet run the density/grounding gates — see Scope cuts.
 - **Not** an outcome claim. We do not assert that grounded answers get users more interviews; outcome tracking is explicitly deferred ([EVAL_DESIGN.md](EVAL_DESIGN.md), "What this can't catch").
@@ -149,7 +149,7 @@ The full funnel + event taxonomy lives in [METRICS_FRAMEWORK.md](METRICS_FRAMEWO
 - **Report path excluded.** `/api/agents/report` (the 8-node LangGraph orchestrator, `lib/report-graph.ts`) runs per-section evals but **not** the density/grounding gates. Cut to keep the first wiring on one surface; the chat path is where the red-team ran.
 - **Threshold calibration cut.** Shipped with unvalidated defaults; calibration needs real traffic (ROADMAP "Gated on the un-fakeable").
 - **Grounding semantic judge off by default.** Without `PACIOLI_API_KEY` + a judge mode, the gate runs deterministic-only (`grounding/config.ts:71-96`) — structural over-claims only. Honest, but not the full check.
-- **Memory-key fix cut.** The `userId = resumeId` aliasing (cross-session leakage, red-team finding #3) is mitigated for eval runs via `skipMemory` (`route.ts:123-155`) but not fixed for real users.
+- **Memory-key fix cut** *(since closed)*. At the time of this PRD, the `userId = resumeId` aliasing (cross-session leakage, red-team finding #3) was mitigated for eval runs only via `skipMemory`. The default has since been fixed: memory is conversation-scoped (`session:<resumeId>:<sessionId>`) unless the caller explicitly claims a stable `userId` (`lib/coach-pipeline.ts`, locked by tests in `lib/coach-pipeline.test.ts`). Authenticated identity remains on the roadmap.
 - **Reviewer inbox cut.** We route to human; we do not build the human's queue.
 
 ---

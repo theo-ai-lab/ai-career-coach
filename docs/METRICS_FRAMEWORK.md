@@ -7,7 +7,7 @@
 > - The **signals** this framework measures are *real and produced today*: every one maps to a field the live `/api/query` route already returns (`app/api/query/route.ts:416-429`) and the UI already consumes (`app/page.tsx:34-73`).
 > - The **PostHog event taxonomy** below is a *specification to wire on top of the existing provider*. PostHog is initialized (`app/providers.tsx`) — gated on `NEXT_PUBLIC_POSTHOG_KEY`, `person_profiles: 'identified_only'` — but the custom events named here are **not yet emitted**; wiring them is a tracked task (see [ROADMAP.md](ROADMAP.md)). Each event maps to a signal that already exists, so this is instrumentation, not new product behavior.
 > - **Every baseline and target is "pending real traffic."** The early-2026 pilot's analytics are no longer accessible ([README](../README.md)). The only committed number is the red-team QA sample, labelled as such below.
-> - **"Users" today are résumé-keyed, not auth'd.** `userId` is aliased to `resumeId` (`route.ts:99-105`); there is no auth. Treat every per-user metric as per-résumé until identity ships ([ROADMAP.md](ROADMAP.md)).
+> - **"Users" today are conversation-keyed, not auth'd.** Memory — and any continuity signal built on it — is scoped to `resumeId` + `sessionId` by default, or to a client-claimed `userId` (`lib/coach-pipeline.ts`); there is no auth. Treat every per-user metric as per-conversation (or per-claimed-id) until identity ships ([ROADMAP.md](ROADMAP.md)).
 
 Companion docs: [PRD.md](PRD.md) (the capability these metrics measure) · [ROADMAP.md](ROADMAP.md) · [EVAL_DESIGN.md](EVAL_DESIGN.md) (the rubric behind the quality scores).
 
@@ -63,7 +63,7 @@ Honest leak points (where users drop and *should*): a `503` at stage 3 (operator
 
 **Retention (per résumé):** returns in a later session and submits ≥1 query.
 - The episodic-memory layer (`session_memories`) is what makes a return session continuous, so retention is meaningful here even pre-auth.
-- Caveat: until the `userId = resumeId` aliasing is fixed (`route.ts:99-105`), "return" is résumé-keyed; a user with two résumés counts twice. Marked for the identity work in [ROADMAP.md](ROADMAP.md).
+- Caveat: memory is conversation-scoped by default (the `userId = resumeId` aliasing is fixed), so "return" continuity requires the browser to retain its `sessionId` (the UI persists it in localStorage) or the caller to claim an explicit `userId`. Until auth ships ([ROADMAP.md](ROADMAP.md)), a user on a new device counts as new.
 - **Target: pending real traffic.**
 
 **Guardrails (counter-metrics):**

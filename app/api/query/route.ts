@@ -62,9 +62,11 @@ function buildDeps(): CoachPipelineDeps {
       return response.content.toString();
     },
     judge: (input) => evaluateCoachingQuality(input),
-    getMemoryContext: (userId) => getMemoryContext(userId),
-    summarizeSession: (userId, sessionId, messages) =>
-      summarizeSessionAsync(userId, sessionId, messages),
+    // The pipeline computes the memory key (conversation-scoped by default;
+    // user:<id> only on an explicit userId claim — red-team finding #3).
+    getMemoryContext: (memoryKey) => getMemoryContext(memoryKey),
+    summarizeSession: (memoryKey, sessionId, messages) =>
+      summarizeSessionAsync(memoryKey, sessionId, messages),
     storeEval: async (record) => {
       const { error } = await getSupabase().from("evals").insert(record);
       if (error) throw new Error(error.message);
