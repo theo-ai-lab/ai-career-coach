@@ -495,6 +495,35 @@ This document captures key technical and product decisions made throughout devel
 
 ---
 
+## Decision 16: Visual Identity — Warm Editorial Theme, System Dark Mode
+
+**Date:** July 2026
+
+**Status:** Decided
+
+**Context:** The UI shipped on the stock shadcn init theme — zero-chroma neutral tokens, the default radius, and a set of dark tokens that were never applied — while both pages hardcoded slate/white/amber Tailwind utilities that bypassed the token layer entirely. The result had no brand identity and read as a generic AI-Tailwind template on sight. The strongest design work already in the codebase (the gate banners and honest-failure copy) was undercut by the shell around it. Two decisions were coupled: what visual system to adopt, and how to handle dark mode.
+
+**Options Considered:**
+
+| Option | Pros | Cons |
+|--------|------|------|
+| Keep the stock shadcn neutrals | Zero effort; nothing to maintain | Reads as an AI template; no identity; the unused dark tokens are dead scaffolding |
+| Warm editorial token system (sand/cream neutrals, one clay accent, serif display + humanist sans) | Distinctive and cohesive; a single accent avoids the purple-gradient AI look; tokens become the single source both pages render through | Requires retheming `globals.css` and restyling both pages + the primitives off the verbatim baseline |
+| Manual light/dark toggle | Explicit user override of the OS setting | A toggle UI to design and test, persisted state, and a first-paint hydration-flash class of bug — real surface for a single-screen tool |
+| System-preference dark mode, no toggle | No toggle UI, no persisted state, no hydration flash; the OS preference is a sensible default | A visitor cannot override their OS setting on this one page |
+
+**Decision:** Adopt the warm editorial token system in place of the stock theme, and resolve dark mode from `prefers-color-scheme` with **no manual toggle**.
+
+**Rationale:**
+- One confident accent (clay) on warm sand/cream neutrals is a deliberate identity that does not collapse into the default "safe" AI palette; a display serif (Newsreader) paired with a humanist sans (Hanken Grotesk) reads as an authored product, not a scaffold.
+- The tokens are the single source of truth: semantic CSS variables in `globals.css` with **both** color schemes hand-tuned in the same warm family (dark is authored, not a mechanical inversion), so the pages and primitives style through tokens instead of one-off utilities.
+- No toggle keeps the surface minimal and sidesteps the persisted-state + hydration-flash bug class. For a single-screen tool the OS preference is a good default; if a user-override toggle is ever wanted, it is additive and can be revisited (noted below).
+- Every degraded state renders through one designed notice surface (`components/notice.tsx`) rather than a raw string, so a 503, a rate limit, an abstention, and a grounding flag are all deliberate design states.
+
+**Implementation:** `app/globals.css` (`@theme inline` token map, `:root` light scheme, `@media (prefers-color-scheme: dark)` dark scheme, `color-scheme` on `html`); `components/notice.tsx` (the shared notice surface); restyled `components/ui/{button,card,input}.tsx` off the verbatim-shadcn baseline; both `app/page.tsx` and `app/demo/page.tsx` restyled through the tokens; fonts wired via `next/font` in `app/layout.tsx`. Commits `6cebb48`, `9780972`, `0a74f7f`, `1100cf5`. Revisit trigger: add a user-override theme toggle only if real usage shows the OS default is wrong for this surface.
+
+---
+
 ## Decisions Pending
 
 | Topic | Status | Blocking | Notes |
