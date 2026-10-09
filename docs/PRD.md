@@ -1,7 +1,7 @@
 # PRD — Trustworthy Answering
 
 **Status:** Shipped (capability is wired on the live request path; thresholds are unvalidated defaults — see Rollout)
-**Owner:** Product (solo) · **Last updated:** 2026-06-18
+**Owner:** Product · **Last updated:** 2026-06-18
 **Surface:** `app/api/query/route.ts` (chat path) + `app/page.tsx` (chat UI)
 
 > This is a PRD for something that already exists in the codebase, not a proposal.
@@ -51,7 +51,7 @@ These are trust failures, not capability failures. The model is fluent. The gap 
 - *When* I ask a high-stakes career question, *I want* the system to be honest about what my résumé does and doesn't support, *so I can* avoid walking into an interview or background check on a claim I can't defend.
 - *When* the system isn't sure, *I want* it to tell me and offer human review, *so I don't* over-trust a confident-sounding guess.
 
-**JTBD (operator — the solo builder running this):**
+**JTBD (operator):**
 - *When* an answer goes out, *I want* a machine-readable record of how well it was grounded and why it did/didn't escalate, *so I can* calibrate thresholds on real traffic and catch the failure classes the red-team found.
 
 ---

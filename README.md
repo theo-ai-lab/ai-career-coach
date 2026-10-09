@@ -18,7 +18,7 @@ An early-2026 pilot (~57 users / 900+ queries) predates this repo's evidence dis
 
 **Try the gates without keys:** the `/demo` route runs the system's core behavior — abstaining on out-of-distribution questions instead of hallucinating, and routing high-stakes ones to human review — with no API key and no backend. Everything model-shaped there is committed, labeled data (fictional persona, deterministic demo embeddings, canned answers); the gate decisions are made by the production gate modules at request time. See [Keyless demo](#keyless-demo-demo).
 
-Built as a solo project to solve a real problem: career advice is either generic (ChatGPT) or expensive (human coaches). This platform delivers personalized, grounded career guidance using specialized AI agents that collaborate through a shared memory system.
+Built to solve a real problem: career advice is either generic (ChatGPT) or expensive (human coaches). This platform delivers personalized, grounded career guidance using specialized AI agents that collaborate through a shared memory system.
 
 **A preregistered, falsifiable 4-dimension LLM-as-judge eval framework — N=6 cases on disk today (v3 scaffold), N=12 cross-vendor adversarial target (v4)** — see [COVERAGE.md](data/eval-benchmark/COVERAGE.md) for the canonical case inventory and [EVAL_DESIGN.md](docs/EVAL_DESIGN.md) for the rubric.
 
@@ -32,13 +32,13 @@ Built as a solo project to solve a real problem: career advice is either generic
 - [**OOD gate calibration**](docs/OOD_GATE_CALIBRATION.md) — how the pre-generation abstention threshold is **calibrated** (split-conformal to a target abstain budget), held-out scored once, and verified — not hand-set. The score's functional form and α are fixed a priori; only τ is fit, and a script + test re-derive it from the committed red-team data.
 - [**Decision Log**](docs/DECISION_LOG.md) — 16 dated decisions with options-considered tables and implementation refs. Decisions 1-13 documented retroactively (see header note); Decisions 14-16 written contemporaneously. Example: Decision 14 (LLM-as-judge temperature 0) explains why eval reproducibility took precedence over generation diversity; Decision 16 records the warm editorial theme and the system-preference dark mode.
 
-![App Screenshot](docs/screenshot.png)
+![AI Career Coach keyless demo using a fictional sample resume](docs/screenshot.png)
 
 ---
 
 ## About this repo
 
-Built solo from November 2025 onward. Three architectural milestones live in the public commit log: working RAG with grounded retrieval (Nov 2025), LLM-as-judge evaluation and three-layer memory system (Dec 2025), and multi-agent LangGraph orchestration with HITL detection (Dec 2025). Full architecture decisions in [docs/DECISION_LOG.md](docs/DECISION_LOG.md), evaluation methodology in [docs/EVAL_DESIGN.md](docs/EVAL_DESIGN.md).
+Development began in November 2025. Three architectural milestones live in the public commit log: working RAG with grounded retrieval (Nov 2025), LLM-as-judge evaluation and three-layer memory system (Dec 2025), and multi-agent LangGraph orchestration with HITL detection (Dec 2025). Full architecture decisions in [docs/DECISION_LOG.md](docs/DECISION_LOG.md), evaluation methodology in [docs/EVAL_DESIGN.md](docs/EVAL_DESIGN.md).
 
 This is a prototype: a Vercel frontend is live, but the early-2026 pilot's backend is no longer accessible (the pilot itself is covered by the one-line note under [Evidence](#evidence)). There is no auth or end-to-end outcome tracking yet — those are planned, not built. Every API route does enforce per-IP token-bucket rate limiting (`lib/rate-limit.ts`; per-instance in-memory, so a shared-store upgrade is the documented next step — see [docs/PRODUCTION_SECURITY_VERIFICATION.md](docs/PRODUCTION_SECURITY_VERIFICATION.md)).
 
